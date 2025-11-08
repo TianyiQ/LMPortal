@@ -1,0 +1,53 @@
+# Overly large data files
+**/aggregated_sorted_trajectories.json
+**/sorted_trajectories.json
+**/optimizer.pt
+**/*optim_states.pt
+**/*model_states.pt
+
+# wandb
+wandb/
+*.log
+**/latest-run
+
+# Python
+**/*.ipynb*
+**/__pycache__/
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.pyw
+**/*.pyz
+**/*.egg-info/**
+
+# web
+web/node_modules
+web/dist
+
+# venv
+**/venv/
+
+# env
+**/env/
+**/.env
+
+# macos
+data/.DS_Store
+**/.DS_Store
+**/.ruff_cache/
+
+# diy 
+**/maarten.md
+**/reasoning-record.json
+**/*_temp.py
+cache/
+
+# api key
+utils/openaiapi.py
+
+# temporary files
+**/___*
+**/tempCodeRunnerFile.python
+**/.claude*
+**/.vscode*

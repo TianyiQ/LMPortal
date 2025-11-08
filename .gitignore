@@ -1,0 +1,46 @@
+# Python
+**/*.ipynb*
+**/__pycache__/
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.pyw
+**/*.pyz
+**/*.egg-info/**
+
+# wandb
+wandb/
+
+# web
+web/node_modules
+web/dist
+
+# venv
+**/venv/
+
+# env
+**/env/
+**/.env
+
+# macos
+data/.DS_Store
+**/.DS_Store
+**/.ruff_cache/
+
+# diy 
+**/maarten.md
+**/reasoning-record.json
+**/*_temp.py
+
+# api key
+utils/openaiapi.py
+
+# temporary files
+**/___*
+**/tempCodeRunnerFile.python
+**/.claude*
+**/.vscode*
+
+# trained models directory
+data/models/
