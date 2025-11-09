@@ -166,7 +166,7 @@ Note: Requires fetching new data first with the domain's data fetching method.
 When asked to clean up:
 1. **Remove superseded files** - Delete all code/data/results/docs except: (a) files required for most advanced results, (b) pre-existing general infrastructure (e.g., CLAUDE.md)
 2. **Consolidate documentation** - Merge all reports into one unified document with internal consistency; remove outdated/superseded content
-3. **Rationalize structure** - Reorganize for perfect extensibility and elegance
+3. **Rationalize structure** - Reorganize for perfect extensibility and elegance, while keeping pre-existing infrastructure intact
 
 ## Common Pitfalls
 

@@ -119,7 +119,7 @@ problems = [MockProblem(), MockProblem()]
 ### Validate Outputs
 - Run end-to-end tests manually
 - Inspect actual outputs (print dataframes, check files)
-- Iterate until correct
+- Iterate until everything works - fail fast and fix immediately
 
 ### Debug Effectively
 ```python
@@ -129,12 +129,18 @@ logger.urgent(f"Failed to process {item}: {error}\n{traceback.format_exc()}")
 # NOT: just swallow exceptions
 ```
 
+When encountering failures:
+- **Replicate with MRE** - Create a minimal reproducible example and use it as a rubber duck
+- **Hardware/API issues** - Check hardware stats, tweak API arguments, make dummy calls before giving up
+- **Enable verbose logging** - Set `DEBUG=2` for detailed output and error messages
+
 ## Communication
 
 ### Progress Updates
 - Keep short and action-focused
 - State what you're doing and why
 - For long operations, give success criteria
+- **Monitor long-running tasks**: Check frequently in first 10 minutes to estimate ETA, then every 5/10/30 minutes depending on duration
 
 ### Final Summary
 Include:
@@ -155,6 +161,12 @@ Verify: python -m pytest tests/test_forecasting.py
 
 Note: Requires fetching new data first with the domain's data fetching method.
 ```
+
+### Cleanup Protocol
+When asked to clean up:
+1. **Remove superseded files** - Delete all code/data/results/docs except: (a) files required for most advanced results, (b) pre-existing general infrastructure (e.g., CLAUDE.md)
+2. **Consolidate documentation** - Merge all reports into one unified document with internal consistency; remove outdated/superseded content
+3. **Rationalize structure** - Reorganize for perfect extensibility and elegance, while keeping pre-existing infrastructure intact
 
 ## Common Pitfalls
 
@@ -187,6 +199,7 @@ grader = create_grader_from_env()  # Uses GRADER_TYPE env var
 - API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.
 - Training: `VALIDATION_STRATEGY`, `LORA_RANK`, etc.
 - Performance: `USE_RAY`, `FORCE_SINGLE_GPU`, etc.
+- Debugging: `DEBUG=2` for detailed output and error messages
 
 ### File References
 - Policy interface: `core/policy/schema.py:51`
