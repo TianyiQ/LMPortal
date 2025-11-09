@@ -1,11 +1,6 @@
 # Development Agent Guide
 
-## Project Context
-
-This is an **infrastructure library** for AI training. You're working with:
-- **Core abstractions**: Policy (models), Domain (problems), Grader (rewards), Trainer (training)
-- **No scripts, algorithms, or evaluation code** - only the foundational abstractions
-- Focus on clean interfaces, extensibility, and production quality
+The project contains infrastructure for language model inference and training. You're working with core abstractions including Policy (models), Domain (problems), Grader (rewards), and Trainer (training). You should keep clean interfaces, extensibility, and production quality.
 
 ## Quick Orientation
 
@@ -202,7 +197,7 @@ grader = create_grader_from_env()  # Uses GRADER_TYPE env var
 - Debugging: `DEBUG=2` for detailed output and error messages
 
 ### File References
-- Policy interface: `core/policy/schema.py:51`
-- Domain interface: `core/domain/schema.py:128`
-- Grader interface: `core/grader/schema.py:17`
-- Trainer interface: `core/trainer/schema.py:62`
+- Policy interface: `core/policy/schema.py`
+- Domain interface: `core/domain/schema.py`
+- Grader interface: `core/grader/schema.py`
+- Trainer interface: `core/trainer/schema.py`

@@ -1,8 +1,0 @@
-[build]
-  base = "web"
-  command = "npm run build"
-  publish = "dist"
-
-[build.environment]
-  NPM_FLAGS = "--force"
-  GIT_SUBMODULE_STRATEGY = "none"
