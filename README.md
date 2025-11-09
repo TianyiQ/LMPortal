@@ -1,4 +1,4 @@
-# LMInterface: Unifying All That Speaks
+# LMPortal: Unifying All That Speaks
 
 ## Overview
 
