@@ -1,16 +1,16 @@
-# AI Training Infrastructure
+# LMInterface: Unifying All That Speaks
 
 ## Overview
 
-This repository provides a unified infrastructure for language model training and inference. It defines clean abstractions for **policies** (models), **domains** (problem sets), **graders** (reward functions), and **trainers** (training strategies), enabling flexible experimentation with different combinations of these components.
+This repository provides a unified infrastructure for language model training and inference. It defines abstractions for **policies** (models), **domains** (problem sets), **graders** (reward functions), and **trainers** (training strategies), enabling flexible experimentation with different combinations of these components.
 
 Key features:
 - **Unified Policy Interface**: Work with API models, local models, batch APIs, Claude Code agents, and even humans through the same interface
 - **Flexible Inference**: The new `infer()` and `infer_many()` methods accept multiple input types (histories, Samples, Problems, or Domains) and return appropriate output types
-- **Fully Parallelized**: The pipeline is fully asynchronous and parallelized, achieving maximum concurrency for both inference and training. Optional support for Ray to increase multi-core CPU utilization
 - **Flexible Training**: Support for SFT (via OpenAI/TogetherAI API or local), RL (via OpenAI API or local), and few-shot learning
-- **Domain Abstractions**: Problem domain interface, with predefined implementations for forecasting, research Q&A, conceptual reasoning, intellectual reasoning, OpenReview, and ChangeMyView opinion evaluation tasks
-- **Grader Framework**: Grader interface (Python-based/LLM-based), with predefined implementations for Brier score and agreement score
+- **Fully Parallelized**: The pipeline is fully asynchronous and parallelized, achieving maximum concurrency for both inference and training. Optional support for Ray to increase multi-core CPU utilization
+- **Domain Abstraction**: Problem domain interface, with predefined implementations for forecasting, research Q&A, conceptual reasoning, intellectual reasoning, OpenReview, and ChangeMyView opinion evaluation tasks
+- **Grader Abstraction**: Grader interface (Python-based/LLM-based), with predefined implementations for Brier score and agreement score
 
 ## Installation
 
