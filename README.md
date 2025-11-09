@@ -20,21 +20,20 @@ uv pip install -e lib/safety_tooling
 
 # Install the main package
 uv pip install -e .
+
+# Enter your API keys
+cp lib/safety_tooling/.env.example lib/safety_tooling/.env
+vi lib/safety_tooling/.env
 ```
 
-## Recommended Configuration
+## Recommended Configuration (optional)
 
-For optimal performance, set these environment variables:
+For optimal performance, set these optional environment variables:
 
 ```bash
 export USE_RAY=1          # Enable Ray for parallel API calls and multi-core utilization
-export USE_OPENROUTER=1   # Use OpenRouter for cost-effective model routing
-export OPENROUTER_API_KEY="your-key"
+export USE_OPENROUTER=1   # Use OpenRouter for high-throughput model routing
 ```
-
-**Benefits:**
-- `USE_RAY=1`: Parallelizes API calls across multiple workers, maximizing throughput (>100k tokens/s)
-- `USE_OPENROUTER=1`: Routes requests through OpenRouter for better pricing and availability (requires `USE_RAY=1`)
 
 ## Usage Examples
 
@@ -166,15 +165,11 @@ agent = ClaudeCode()
 # Infer with code execution capabilities
 result = agent.infer("Write a Python function to calculate fibonacci numbers and test it with n=10")
 print(f"Agent response: {result}")
-
-# The agent can execute code, read files, and use tools
-result = agent.infer("Analyze the performance of the policy inference methods in core/policy/schema.py")
-print(f"Analysis: {result}")
 ```
 
 ### Example 7: Supervised Fine-Tuning
 
-SFT trainers now accept `list[SingleSample]` directly:
+SFT trainer accepts `list[SingleSample]` directly.
 
 ```python
 from utils.policy_utils import create_policy_from_string
@@ -212,7 +207,7 @@ trained_policy = trainer.train(
 
 ### Example 8: Few-Shot Learning
 
-Few-shot trainers also accept `list[SingleSample]`:
+Few-shot trainer also accepts `list[SingleSample]`.
 
 ```python
 from utils.policy_utils import create_policy_from_string
@@ -300,7 +295,7 @@ print(f"A: {response.output}")
 
 ### Example 11: Async Inference and Training Across Multiple Domains
 
-Run inference and training on multiple domains in parallel:
+Run inference and training on multiple domains in parallel.
 
 ```python
 import asyncio
@@ -333,6 +328,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+Everything else in this library is also asynchronous, and the snippet above serves only as an example.
 
 ### Example 12: Local Model Training with Multi-GPU
 
@@ -508,7 +505,6 @@ Trainers orchestrate the training process. Base class: `Trainer` (core/trainer/s
 
 ### API Keys
 
-Required for API-based policies:
 - `OPENAI_API_KEY` - OpenAI API key
 - `ANTHROPIC_API_KEY` - Anthropic API key
 - `TOGETHER_API_KEY` - Together AI API key
@@ -520,7 +516,6 @@ Required for API-based policies:
 
 ### Training Configuration
 
-Used by trainer implementations:
 - `VALIDATION_STRATEGY` - Validation set strategy: "none", "train", "gt" (default: "none")
 - `LORA_RANK` - LoRA rank for parameter-efficient training (default: 0, full-parameter)
 - `TRAINED_POLICY_NAME_PATTERN` - Naming pattern for trained models (supports placeholders)
@@ -590,52 +585,10 @@ policy = RayModel("o4-mini")
 # Automatically parallelizes API calls across workers
 ```
 
-## Safety Tooling Library
-
-The `lib/safety_tooling` package provides production-ready API inference with:
-- **Caching**: Redis-based caching for cost savings
-- **Retry Logic**: Exponential backoff with configurable retries
-- **Rate Limiting**: Automatic rate limit handling
-- **Batch Processing**: Efficient batch API support
-- **Multiple Providers**: OpenAI, Anthropic, DeepSeek, Google, Together, HuggingFace
-
-See `lib/safety_tooling/README.md` for detailed documentation.
-
-## Development
-
-### Running Tests
-
-```bash
-pytest tests/
-```
-
-### Code Formatting
-
-```bash
-ruff check --fix .
-black . --workers=1
-```
-
-### Project Structure Best Practices
-
-From `CLAUDE.md`:
-- Use `import utils.path_utils` at the top of scripts
-- Run modules with `python -m module.path` from project root
-- For async from sync context: `from utils.async_utils import run_coroutine`
-
 ## License
 
 MIT
 
-## Citation
+## Acknowledgment
 
-If you use this codebase, please cite:
-
-```bibtex
-@software{truthseekinggym2025,
-  title = {AI Training Infrastructure},
-  author = {Research Team},
-  year = {2025},
-  url = {https://github.com/yourusername/truthseekinggym}
-}
-```
+Huge thank-you to developers of [safety-research/safety-tooling](https://github.com/safety-research/safety-tooling), which this project is partially based on. 
