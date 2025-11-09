@@ -1,3 +1,70 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d531789762f08991fee254cbf8e0e4439c7bb3c30d939a1f98f229647e9be313
-size 8748
+[   
+    {
+        "dimensions": [
+            "concretized_deconfusion",
+            "alignment_research"
+        ],
+        "question": "Some say that the ability to compress data is synonym with intelligence, e.g. stronger language models achieving better cross-entropy losses (and therefore compression rates) on text data. However, one could imagine a massive rule-based model that memorizes responses to all possible $\\Sigma^{8192}$ input token sequences, and mechanically outputs a certain piece of text when given a certain input. When we use this model for compression, we achieve very small compression rates. Is this model intelligent? If yes, why? If not, how to reconcile this with the 'compression is intelligence' claim, or is the claim false?",
+        "short_answer": "No. Reconciliation: The size of the model itself is also part of the post-compression size."
+    },
+    {
+        "dimensions": [
+            "concretized_deconfusion",
+            "philosophy"
+        ],
+        "question": "In the real world, utility returns for any given action often follow an extremely heavy-tailed distribution, in part because of Pascal's Wager. What is the most serious theoretical problem it may pose to decision theory, and how can we address it, both theoretically and in practice?",
+        "short_answer": "Expected utility is undefined because the expectation of both the positive and negative utilities are both infinite and both dominated by an infinitesimal tail (e.g. Pareto distribution with $\\alpha < 1$ don't have a finite expectation). Potential theoretical solutions include bounded utilities, Cauchy principle value-style calculations, and using alternative decision theories that don't rely on expected utility. In practice, it's highly plausible that a certain threshold of utility exists, where actions performing best within that threshold will also perform best at the extreme tail above that threshold. This is because our extreme uncertainty about extreme tail outcomes is so high that we can only fall back to generic heuristics/priors (e.g. it's theoretically possible that an unknown deity will reward me infinitely if I murder a million people, but it's more likely that a deity will punish me infinitely for doing the same). When we (or e.g. our AI) becomes smarter and can reason better about extreme tail outcomes, that critical threshold will shift to a higher value."
+    },
+    {
+        "dimensions": [
+            "concretized_deconfusion"
+        ],
+        "question": "I'm a linguistics researcher and I've observed a strange pattern while studying verb tense acquisition in young children. I analyzed transcripts of conversations with 30 kids, aged 2-4, for a year. I'm seeing a common error pattern: a child will first correctly use an irregular past tense verb (like 'went' or 'ate'), but then later they start making errors like 'goed' or 'eated', before eventually going back to the correct irregular forms.\n\nFor example, here's the progression for one of my subjects:\n- Month 3: 'I ate an apple.'\n- Month 7: 'I eated a cookie.'\n- Month 12: 'I ate pasta.'\n\nWhy does this happen? What is the most likely explanation?",
+        "short_answer": "The shift to 'eated' represents the child's successful learning and **internalization of a grammatical rule** (add '-ed' for past tense). The initial correct usage was likely just rote memorization, so the over-regularization error is paradoxically a sign of progress in understanding the language's system."
+    },
+    {
+        "dimensions": [
+            "concretized_deconfusion",
+            "alignment_research"
+        ],
+        "question": "Pre-training autoregressive language models with a cross-entropy loss is equivalent to arithmetic encoding, i.e. lossless compression of token sequences that minimizes encoding length. Kolmogorov complexity is a foundational formalism for lossless compression. Given any pre-trained model M and test set D, please *distinctly* map {M, D, CE_loss(M,D)} to the elements in the definition of the Kolmogorov complexity of D. Feel free to use formally equivalent definitions, but try to keep it as simple and elegant as possible.",
+        "short_answer": "A universal Turing machine (<> Python interpreter) that takes the specs of another Turing machine (<> the language model M) and simulates it on a second input string to recover the test set D as the output string, where the length of the second input string is the CE loss; the invariance theorem guarantees this is equivalent to the Kolmogorov complexity of D. M should not be the universal Turing machine itself since model parameter size should be counted in the Kolmogorov complexity of D."
+    },
+    {
+        "dimensions": [
+            "concretized_deconfusion"
+        ],
+        "question": "Neo-classical economics often characterize social welfare as a linear sum of consumption or monetary gain, based on which it derives the welfare efficiency of markets. Empirical research, instead, suggests utility has sharply diminishing returns wrt income - possibly logarithmic or even bounded. What are the high-impact consequences of this mismatch of theory and practice, i.e. concrete questions to which neo-classical economics give confident false answers due to the linearity assumption?"
+    },
+    {
+        "dimensions": [
+            "concretized_deconfusion",
+            "alignment_research"
+        ],
+        "question": "I'm a statistician, and I'm having an argument with an ML experimentalist on my team. I argued that training large, non-convex models like Transformers should be nearly impossible, because the high-dimensional loss landscape must be full of poor local minima that a simple optimizer like Adam would get stuck in.\n\nMy colleague just replied, 'And yet, in practice, we almost always find an excellent solution with minimal tuning.' What property of high-dimensional loss landscapes best explains my colleague's observation?",
+        "short_answer": "In high dimensions, points that would be local minima in low dimensions are overwhelmingly likely to be saddle points. For a point to be a true local minimum, the loss has to curve upwards in *all* dimensions, which is statistically rare. Thus, the optimizer almost always has a downward path to follow."
+    },
+    {
+        "dimensions": [
+            "overton",
+            "concretized_deconfusion"
+        ],
+        "question": "What is the rational basis for intellectual property (IP) in a world where digital copies are free and AI can generate novel works trivially? The traditional justifications (e.g., incentivizing creation, natural rights) are crumbling. Develop a new, first-principles justification for IP that is robust to these technological shifts, or, alternatively, provide a rigorous argument for its complete abolition and a roadmap for the economic transition. Explain in concrete terms how your framework operates by walking through a fictional example."
+    },
+    {
+        "dimensions": [
+            "alignment_research",
+            "concretized_deconfusion",
+            "philosophy"
+        ],
+        "question": "To train a robust moral AI agent with RL, I select a set of diverse moral principles (namely, utilitarianism and various deontological principles), use a language model pipeline to estimate 'goodness' of an action under each principle (e.g. for utilitarianism it's the expected utility), normalize the goodness score of each principle into [0,1], and then take the weighted average of the goodness scores of each principle to get the final RL reward for the action. The utilitarianism part enables the agent to act both competently and morally, while the deontological principles places extra moral constraints. The former receives a large weight due to its irreplacable role in the agent's competence. Assuming that I've already got a perfect set of weights for the principles, what is the biggest problem that would in practice result in extreme incompetence, if I deploy the agent in the real world?",
+        "short_answer": "Utilities follow an extremely heavy-tailed distribution, so normalizing them into [0,1] will make the utilitarian reward function practically zero for almost all actions in almost all cases. Since the utilitarian reward is the only part of the reward design that considers competence, the agent will be completely unable to act competently."
+    },
+    {
+        "dimensions": [
+            "abstract_deconfusion",
+            "concretized_deconfusion"
+        ],
+        "question": "What are the most important reasons human beings failed to be truth-seeking in their thinking and communication? Try to develop a clean taxonomy, without overlappping categories."
+    }
+]
