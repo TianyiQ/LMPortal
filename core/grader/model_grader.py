@@ -3,12 +3,10 @@ Model-based grader that uses an LLM to evaluate responses.
 """
 
 import re
-from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 from core.grader.schema import Grader
 from core.policy.schema import SingleSample
-from utils.async_utils import run_coroutine
 from utils.io_utils import logger
 
 

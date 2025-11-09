@@ -1,14 +1,11 @@
 import json
 import os
-import random
-import time
 from copy import deepcopy
-from typing import Literal
 
 from datasets import load_dataset
 from tqdm import tqdm
 
-from core.domain.schema import BinaryProblem, Problem, ProblemDomain
+from core.domain.schema import BinaryProblem, ProblemDomain
 from utils.templates.openreview import review_prompt
 
 

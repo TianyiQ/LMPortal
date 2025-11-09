@@ -1,15 +1,11 @@
-import json
 import os
-import random
 import time
 from datetime import datetime
-from functools import reduce
-from typing import Literal
 
 import requests
 import tqdm
 
-from core.domain.schema import BinaryProblem, Problem, ProblemDomain
+from core.domain.schema import BinaryProblem, ProblemDomain
 from utils.io_utils import dump_file, load_file, logger
 
 

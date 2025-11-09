@@ -7,7 +7,6 @@ directly through the command line interface during evaluation.
 
 import asyncio
 
-import utils.path_utils
 from core.policy.schema import Policy
 
 

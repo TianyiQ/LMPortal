@@ -21,7 +21,7 @@ from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import requests
 import torch
@@ -36,7 +36,6 @@ try:
 except ImportError:
     wandb = None
 
-import utils.path_utils
 from core.grader.schema import Grader
 from core.policy.schema import Policy, SingleSample
 from utils.io_utils import dump_file, logger

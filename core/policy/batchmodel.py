@@ -12,7 +12,6 @@ Supports OpenAI and Anthropic batch APIs through safety_tooling.
 
 import asyncio
 import logging
-import os
 import time
 import uuid
 import warnings
@@ -21,7 +20,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import utils.path_utils
 
 try:
     from safetytooling.apis.batch_api import BatchInferenceAPI

@@ -1,8 +1,7 @@
 import os
-import random
 from copy import deepcopy
 
-from core.domain.schema import OpenEndedProblem, Problem, ProblemDomain
+from core.domain.schema import OpenEndedProblem, ProblemDomain
 from utils.io_utils import load_file
 
 

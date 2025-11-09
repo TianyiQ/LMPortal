@@ -1,13 +1,8 @@
-import json
 import os
-import random
 import re
-import time
-from typing import Literal
 
-import tqdm
 
-from core.domain.schema import BinaryProblem, Problem, ProblemDomain
+from core.domain.schema import BinaryProblem, ProblemDomain
 from utils.io_utils import load_file
 
 

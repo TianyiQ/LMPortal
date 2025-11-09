@@ -6,12 +6,9 @@ for executing research tasks and investigations.
 """
 
 import asyncio
-import json
 import os
-import subprocess
 import tempfile
 
-import utils.path_utils
 from core.policy.schema import Policy
 
 

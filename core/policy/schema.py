@@ -7,13 +7,11 @@ import abc
 import asyncio
 import copy
 import dataclasses
-import json
 import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import utils.path_utils
 
 from core.domain.schema import Problem
 from utils.async_utils import run_coroutine

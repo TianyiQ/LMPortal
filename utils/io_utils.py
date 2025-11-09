@@ -794,7 +794,6 @@ def save_trajectories_with_decoupling(
         beliefs_only: If True, only save belief measurements (assumes raw trajectories exist)
     """
     from core.reasoning.schema import (  # Import here to avoid circular dependency
-        RawReasoningTrajectory,
         ReasoningTrajectory,
         get_decouple_config,
     )

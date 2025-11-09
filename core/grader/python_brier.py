@@ -4,7 +4,7 @@ Python-based Brier score grader that extracts beliefs and calculates Brier score
 
 import dataclasses
 import re
-from typing import Any, Optional
+from typing import Any
 
 from core.grader.python_grader import PythonGrader
 from core.policy.schema import SingleSample

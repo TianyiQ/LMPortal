@@ -1,11 +1,9 @@
 import json
-import os
 from pathlib import Path
 from typing import Optional, Union
 
 import numpy as np
 
-import utils.path_utils
 from core.domain.schema import OpenEndedProblem, Problem, ProblemDomain
 from utils.io_utils import logger
 

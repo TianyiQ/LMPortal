@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Literal, Union
 
 import aiohttp
-import utils.path_utils
 
 try:
     from safetytooling.apis import InferenceAPI
@@ -37,7 +36,7 @@ except ImportError:
     StopReason = None
 
 from core.domain.schema import Problem
-from core.policy.schema import EvaluatedSample, Policy, SingleSample
+from core.policy.schema import Policy, SingleSample
 from utils.io_utils import dump_file, logger
 
 
