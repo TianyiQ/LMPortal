@@ -77,10 +77,14 @@ class CMVFreeForm(ProblemDomain):
                     dataset_splits = []
                     for split in ["train", "validation", "test"]:
                         try:
-                            ds = load_dataset("stanfordnlp/SHP", data_dir=domain, split=split)
+                            ds = load_dataset(
+                                "stanfordnlp/SHP", data_dir=domain, split=split
+                            )
                             dataset_splits.append(ds)
                         except Exception as e:
-                            logger.major(f"Could not load {split} split for {domain}: {e}")
+                            logger.major(
+                                f"Could not load {split} split for {domain}: {e}"
+                            )
 
                     if not dataset_splits:
                         logger.major(f"No data found for domain {domain}")
@@ -89,25 +93,37 @@ class CMVFreeForm(ProblemDomain):
                     # Combine all splits
                     full_dataset = concatenate_datasets(dataset_splits)
                     CMVFreeForm._cached_datasets[domain] = full_dataset
-                    logger.major(f"Loaded and cached {len(full_dataset)} total entries from {domain}")
+                    logger.major(
+                        f"Loaded and cached {len(full_dataset)} total entries from {domain}"
+                    )
 
                 except Exception as e:
                     logger.major(f"Failed to load domain {domain}: {e}")
-                    logger.major("Please ensure you have the datasets library installed: pip install datasets")
+                    logger.major(
+                        "Please ensure you have the datasets library installed: pip install datasets"
+                    )
                     continue
             else:
                 full_dataset = CMVFreeForm._cached_datasets[domain]
-                logger.major(f"Using cached dataset for {domain} with {len(full_dataset)} entries")
+                logger.major(
+                    f"Using cached dataset for {domain} with {len(full_dataset)} entries"
+                )
 
             # Convert to list for filtering
             all_entries = list(full_dataset)
-            all_entries.sort(key=lambda x: x.get("post_id"))  # Sort for deterministic ordering
+            all_entries.sort(
+                key=lambda x: x.get("post_id")
+            )  # Sort for deterministic ordering
 
             # Filter by score_ratio percentile
             score_ratios = [entry.get("score_ratio", 1.0) for entry in all_entries]
             threshold = np.percentile(score_ratios, self.score_ratio_percentile * 100)
 
-            filtered_entries = [entry for entry in all_entries if entry.get("score_ratio", 1.0) >= threshold]
+            filtered_entries = [
+                entry
+                for entry in all_entries
+                if entry.get("score_ratio", 1.0) >= threshold
+            ]
 
             logger.major(
                 f"Filtered to {len(filtered_entries)} entries with score_ratio >= {threshold:.2f} "

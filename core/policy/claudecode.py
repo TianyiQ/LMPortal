@@ -21,7 +21,10 @@ class ClaudeCode(Policy):
     """
 
     def __init__(
-        self, colloquial_name: str = "Claude-Code", timeout: int = 1200, few_shot_examples: list[dict[str, str]] = None
+        self,
+        colloquial_name: str = "Claude-Code",
+        timeout: int = 1200,
+        few_shot_examples: list[dict[str, str]] = None,
     ):  # 20 minutes default timeout
         """
         Initialize Claude Code policy.
@@ -33,8 +36,12 @@ class ClaudeCode(Policy):
         super().__init__(colloquial_name, few_shot_examples)
         self.timeout = timeout
 
-    async def infer_single_async(
-        self, history: list[dict[str, str]], disable_system_prompt: bool = False, working_dir: str = None, **kwargs
+    async def infer_from_history_async(
+        self,
+        history: list[dict[str, str]],
+        disable_system_prompt: bool = False,
+        working_dir: str = None,
+        **kwargs,
     ) -> str:
         """
         Execute a single research task using Claude Code CLI.
@@ -76,7 +83,9 @@ class ClaudeCode(Policy):
         # Execute Claude Code
         return await self._execute_claude_code(request, timeout, working_dir)
 
-    async def _execute_claude_code(self, request: str, timeout: int, working_dir: str = None) -> str:
+    async def _execute_claude_code(
+        self, request: str, timeout: int, working_dir: str = None
+    ) -> str:
         """
         Execute Claude Code CLI with the given request.
 
@@ -150,7 +159,9 @@ OUTPUT INSTRUCTIONS:
                     await asyncio.wait_for(process.wait(), timeout=timeout)
 
                     print("=" * 60)
-                    print(f"Claude Code process completed with return code: {process.returncode}")
+                    print(
+                        f"Claude Code process completed with return code: {process.returncode}"
+                    )
 
                     # Try to read the result file first
                     result_content = ""
@@ -158,7 +169,9 @@ OUTPUT INSTRUCTIONS:
                         if os.path.exists(result_file):
                             with open(result_file, encoding="utf-8") as f:
                                 result_content = f.read()
-                            print(f"📁 Result file found and read ({len(result_content)} characters)")
+                            print(
+                                f"📁 Result file found and read ({len(result_content)} characters)"
+                            )
                         else:
                             print(f"⚠️ Result file not found at: {result_file}")
                     except Exception as e:
@@ -181,7 +194,9 @@ OUTPUT INSTRUCTIONS:
                     response_parts = []
 
                     response_parts.append("=== CLAUDE CODE EXECUTION COMPLETED ===")
-                    response_parts.append(f"Working directory preserved at: {temp_dir_path}")
+                    response_parts.append(
+                        f"Working directory preserved at: {temp_dir_path}"
+                    )
                     response_parts.append(f"Return code: {process.returncode}")
 
                     if result_content.strip():
@@ -189,12 +204,16 @@ OUTPUT INSTRUCTIONS:
                         response_parts.append(result_content.strip())
                     else:
                         response_parts.append("=== NO RESULTS FILE FOUND ===")
-                        response_parts.append("Check the working directory manually for any outputs.")
+                        response_parts.append(
+                            "Check the working directory manually for any outputs."
+                        )
 
                     # Check return code
                     if process.returncode != 0:
                         response_parts.append("=== WARNING ===")
-                        response_parts.append(f"Claude Code exited with non-zero return code: {process.returncode}")
+                        response_parts.append(
+                            f"Claude Code exited with non-zero return code: {process.returncode}"
+                        )
 
                     # Return combined response
                     return "\n\n".join(response_parts)
@@ -212,7 +231,9 @@ OUTPUT INSTRUCTIONS:
 
             except Exception:
                 # Don't clean up temp directory on error so we can inspect it
-                print(f"Exception occurred. Working directory preserved at: {temp_dir_path}")
+                print(
+                    f"Exception occurred. Working directory preserved at: {temp_dir_path}"
+                )
                 raise
 
         except FileNotFoundError as file_not_found_err:
@@ -224,7 +245,7 @@ OUTPUT INSTRUCTIONS:
         except Exception as e:
             raise RuntimeError(f"Failed to execute Claude Code: {str(e)}") from e
 
-    async def infer_batch_async(
+    async def infer_from_histories_async(
         self,
         histories: list[list[dict[str, str]]],
         disable_system_prompt: bool = False,
@@ -249,8 +270,10 @@ OUTPUT INSTRUCTIONS:
             try:
                 print(f"Executing Claude Code task {i + 1}/{len(histories)}...")
                 # Get working directory for this task if provided
-                working_dir = working_dirs[i] if working_dirs and i < len(working_dirs) else None
-                result = await self.infer_single_async(
+                working_dir = (
+                    working_dirs[i] if working_dirs and i < len(working_dirs) else None
+                )
+                result = await self.infer_from_history_async(
                     history, disable_system_prompt, working_dir=working_dir, **kwargs
                 )
                 results.append(result)

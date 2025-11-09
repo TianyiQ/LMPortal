@@ -16,17 +16,23 @@ if not int(os.getenv("DISABLE_RAY_MODEL", "0")):
     try:
         from core.policy.raymodel import RayAPIModel
     except ImportError as e:
-        logger.urgent("WARNING: RayAPIModel not found, will not use it. Exception content: {}", e)
+        logger.urgent(
+            "WARNING: RayAPIModel not found, will not use it. Exception content: {}", e
+        )
 
 if not int(os.getenv("DISABLE_LOCAL_MODEL", "0")):
     try:
         from core.policy.localmodel import LocalModel
     except ImportError as e:
-        logger.urgent("WARNING: LocalModel not found, will not use it. Exception content: {}", e)
+        logger.urgent(
+            "WARNING: LocalModel not found, will not use it. Exception content: {}", e
+        )
         LocalModel = None
 else:
     # Placeholder for LocalModel when DISABLE_LOCAL_MODEL=1
-    logger.urgent("WARNING: LocalModel not found, will silently create a placeholder class.")
+    logger.urgent(
+        "WARNING: LocalModel not found, will silently create a placeholder class."
+    )
 
     class LocalModel:
         def __init__(self, *args, **kwargs):
@@ -34,7 +40,9 @@ else:
 
 
 if int(os.getenv("USE_OPENROUTER", "0")) and not int(os.getenv("USE_RAY", "0")):
-    logger.major("WARNING: Using OpenRouter but not Ray is not supported. Setting USE_RAY=1.")
+    logger.major(
+        "WARNING: Using OpenRouter but not Ray is not supported. Setting USE_RAY=1."
+    )
     os.environ["USE_RAY"] = "1"
 
 
@@ -87,10 +95,14 @@ def recognize_system_prompt_name(
     if int(os.getenv("DEBUG", "0")) >= 1 and system_prompt not in error_reported:
         error_reported.add(system_prompt)
         logger.major(
-            "System prompt '{}' doesn't seem to match any of the known system prompts. Details:", system_prompt
+            "System prompt '{}' doesn't seem to match any of the known system prompts. Details:",
+            system_prompt,
         )
         matches_sorted = sorted(
-            [(name, _shared_substr_len(system_prompt, prompt)) for name, prompt in all_system_prompts.items()],
+            [
+                (name, _shared_substr_len(system_prompt, prompt))
+                for name, prompt in all_system_prompts.items()
+            ],
             key=lambda x: x[1],
             reverse=True,
         )
@@ -109,7 +121,9 @@ def policies_equal(a: Optional[Policy], b: Optional[Policy]) -> bool:
         return str(a) == str(b)
 
 
-def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **kwargs) -> Policy:
+def create_policy_from_string(
+    policy_spec: str, use_openrouter: bool = None, **kwargs
+) -> Policy:
     """
     Create a Policy object from a string specification.
     Can also load from saved models in data/models/ directory.
@@ -121,34 +135,99 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
         return ClaudeCode(**kwargs)
 
     if (
-        use_openrouter or (use_openrouter is None and int(os.getenv("USE_OPENROUTER", "0")))
+        use_openrouter
+        or (use_openrouter is None and int(os.getenv("USE_OPENROUTER", "0")))
     ) and "NOROUTER" not in policy_spec:
         if not int(os.getenv("USE_RAY", "0")):
-            logger.major("Using OpenRouter but not Ray. Setting USE_RAY=1.", dedup="message_stem", max_count=1)
+            logger.major(
+                "Using OpenRouter but not Ray. Setting USE_RAY=1.",
+                dedup="message_stem",
+                max_count=1,
+            )
             os.environ["USE_RAY"] = "1"
 
         candidate_policies = {
-            "gpt-4.1-nano": ("openai/gpt-4.1-nano", "gpt-4.1-nano", "openrouter openai"),
-            "gpt-4.1-mini": ("openai/gpt-4.1-mini", "gpt-4.1-mini", "openrouter openai"),
+            "gpt-4.1-nano": (
+                "openai/gpt-4.1-nano",
+                "gpt-4.1-nano",
+                "openrouter openai",
+            ),
+            "gpt-4.1-mini": (
+                "openai/gpt-4.1-mini",
+                "gpt-4.1-mini",
+                "openrouter openai",
+            ),
             "gpt-4.1": ("openai/gpt-4.1", "gpt-4.1", "openrouter openai"),
             "gpt-o3": ("openai/o3", "gpt-o3", "openrouter openai"),
             "o3": ("openai/o3", "o3", "openrouter openai"),
             "o3-2025-04-16": ("openai/o3-2025-04-16", "o3", "openrouter openai"),
             "gpt-o4-mini": ("openai/o3-mini", "gpt-o4-mini", "openrouter openai"),
             "o4-mini": ("openai/o4-mini", "o4-mini", "openrouter openai"),
-            "o4-mini-2025-04-16": ("openai/o4-mini-2025-04-16", "o4-mini", "openrouter openai"),
-            "deepseek-v3": ("deepseek/deepseek-chat-v3-0324", "deepseek-v3", "openrouter together"),
-            "llama-4-scout": ("meta-llama/llama-4-scout", "llama-4-scout", "openrouter together"),
-            "llama-4-maverick": ("meta-llama/llama-4-maverick", "llama-4-maverick", "openrouter together"),
-            "claude-sonnet-4": ("anthropic/claude-sonnet-4", "claude-sonnet-4", "openrouter anthropic"),
-            "claude-opus-4": ("anthropic/claude-opus-4", "claude-opus-4", "openrouter anthropic"),
-            "claude-opus-4.1": ("anthropic/claude-opus-4.1", "claude-opus-4.1", "openrouter anthropic"),
-            "deepseek-r1": ("deepseek/deepseek-r1-0528", "deepseek-r1", "openrouter together"),
-            "gemma-3-27b-it": ("google/gemma-3-27b-it", "gemma-3-27b-it", "openrouter together"),
-            "gemma-3-12b-it": ("google/gemma-3-12b-it", "gemma-3-12b-it", "openrouter together"),
-            "gemma-3-4b-it": ("google/gemma-3-4b-it", "gemma-3-4b-it", "openrouter together"),
-            "gemma-2-27b-it": ("google/gemma-2-27b-it", "gemma-2-27b-it", "openrouter together"),
-            "gemma-3n-e4b-it": ("google/gemma-3n-e4b-it", "gemma-3n-e4b-it", "openrouter together"),
+            "o4-mini-2025-04-16": (
+                "openai/o4-mini-2025-04-16",
+                "o4-mini",
+                "openrouter openai",
+            ),
+            "deepseek-v3": (
+                "deepseek/deepseek-chat-v3-0324",
+                "deepseek-v3",
+                "openrouter together",
+            ),
+            "llama-4-scout": (
+                "meta-llama/llama-4-scout",
+                "llama-4-scout",
+                "openrouter together",
+            ),
+            "llama-4-maverick": (
+                "meta-llama/llama-4-maverick",
+                "llama-4-maverick",
+                "openrouter together",
+            ),
+            "claude-sonnet-4": (
+                "anthropic/claude-sonnet-4",
+                "claude-sonnet-4",
+                "openrouter anthropic",
+            ),
+            "claude-opus-4": (
+                "anthropic/claude-opus-4",
+                "claude-opus-4",
+                "openrouter anthropic",
+            ),
+            "claude-opus-4.1": (
+                "anthropic/claude-opus-4.1",
+                "claude-opus-4.1",
+                "openrouter anthropic",
+            ),
+            "deepseek-r1": (
+                "deepseek/deepseek-r1-0528",
+                "deepseek-r1",
+                "openrouter together",
+            ),
+            "gemma-3-27b-it": (
+                "google/gemma-3-27b-it",
+                "gemma-3-27b-it",
+                "openrouter together",
+            ),
+            "gemma-3-12b-it": (
+                "google/gemma-3-12b-it",
+                "gemma-3-12b-it",
+                "openrouter together",
+            ),
+            "gemma-3-4b-it": (
+                "google/gemma-3-4b-it",
+                "gemma-3-4b-it",
+                "openrouter together",
+            ),
+            "gemma-2-27b-it": (
+                "google/gemma-2-27b-it",
+                "gemma-2-27b-it",
+                "openrouter together",
+            ),
+            "gemma-3n-e4b-it": (
+                "google/gemma-3n-e4b-it",
+                "gemma-3n-e4b-it",
+                "openrouter together",
+            ),
             "llama-3-1-8b-instruct": (
                 "meta-llama/llama-3.1-8b-instruct",
                 "llama-3-1-8b-instruct",
@@ -164,25 +243,45 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                 "qwen-3-235b-a22b-thinking",
                 "openrouter together",
             ),
-            "qwen-3-235b-a22b": ("qwen/qwen3-235b-a22b", "qwen-3-235b-a22b", "openrouter together"),
+            "qwen-3-235b-a22b": (
+                "qwen/qwen3-235b-a22b",
+                "qwen-3-235b-a22b",
+                "openrouter together",
+            ),
             "qwen-3-32b": ("qwen/qwen3-32b", "qwen-3-32b", "openrouter together"),
             "qwen-3-14b": ("qwen/qwen3-14b", "qwen-3-14b", "openrouter together"),
             "qwen-3-8b": ("qwen/qwen3-8b", "qwen-3-8b", "openrouter together"),
-            "qwen-2-5-7b": ("qwen/qwen-2.5-7b-instruct", "qwen-2-5-7b", "openrouter together"),
+            "qwen-2-5-7b": (
+                "qwen/qwen-2.5-7b-instruct",
+                "qwen-2-5-7b",
+                "openrouter together",
+            ),
             "mistral-small-3.1-24b-instruct": (
                 "mistralai/mistral-small-3.1-24b-instruct",
                 "mistral-small-3.1-24b-instruct",
                 "openrouter together",
             ),
             "kimi-k2": ("moonshotai/kimi-k2", "kimi-k2", "openrouter together"),
-            "gemini-2.0-flash": ("google/gemini-2.0-flash-001", "gemini-2.0-flash", "openrouter together"),
+            "gemini-2.0-flash": (
+                "google/gemini-2.0-flash-001",
+                "gemini-2.0-flash",
+                "openrouter together",
+            ),
             "gemini-2.5-flash": (
                 "google/gemini-2.5-flash",
                 "gemini-2.5-flash",
                 "openrouter together",
             ),  # Supported by OpenRouter
-            "gemini-2.5-pro": ("google/gemini-2.5-pro", "gemini-2.5-pro", "openrouter together"),
-            "claude-3-5-haiku": ("anthropic/claude-3.5-haiku", "claude-3-5-haiku", "openrouter anthropic"),
+            "gemini-2.5-pro": (
+                "google/gemini-2.5-pro",
+                "gemini-2.5-pro",
+                "openrouter together",
+            ),
+            "claude-3-5-haiku": (
+                "anthropic/claude-3.5-haiku",
+                "claude-3-5-haiku",
+                "openrouter anthropic",
+            ),
             "gpt-4o": ("openai/gpt-4o-2024-11-20", "gpt-4o", "openrouter openai"),
             "gpt-5-mini": ("openai/gpt-5-mini", "gpt-5-mini", "openrouter openai"),
             "gpt-5-nano": ("openai/gpt-5-nano", "gpt-5-nano", "openrouter openai"),
@@ -210,15 +309,35 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
             "o4-mini": ("o4-mini-2025-04-16", "o4-mini", "openai"),
             "o4-mini-2025-04-16": ("o4-mini-2025-04-16", "o4-mini", "openai"),
             "deepseek-v3": ("deepseek-ai/DeepSeek-V3", "deepseek-v3", "together"),
-            "llama-4-scout": ("meta-llama/Llama-4-Scout-17B-16E-Instruct", "llama-4-scout", "together"),
-            "llama-4-maverick": ("meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "llama-4-maverick", "together"),
-            "claude-sonnet-4": ("claude-sonnet-4-20250514", "claude-sonnet-4", "anthropic"),
+            "llama-4-scout": (
+                "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+                "llama-4-scout",
+                "together",
+            ),
+            "llama-4-maverick": (
+                "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+                "llama-4-maverick",
+                "together",
+            ),
+            "claude-sonnet-4": (
+                "claude-sonnet-4-20250514",
+                "claude-sonnet-4",
+                "anthropic",
+            ),
             "claude-opus-4": ("claude-opus-4-20250514", "claude-opus-4", "anthropic"),
-            "claude-opus-4.1": ("claude-opus-4-1-20250805", "claude-opus-4.1", "anthropic"),
+            "claude-opus-4.1": (
+                "claude-opus-4-1-20250805",
+                "claude-opus-4.1",
+                "anthropic",
+            ),
             "deepseek-r1": ("deepseek-ai/DeepSeek-R1", "deepseek-r1", "together"),
             "gemma-3-27b-it": ("google/gemma-3-27b-it", "gemma-3-27b-it", "together"),
             "gemma-2-27b-it": ("google/gemma-2-27b-it", "gemma-2-27b-it", "together"),
-            "gemma-3n-e4b-it": ("google/gemma-3n-E4B-it", "gemma-3n-e4b-it", "together"),
+            "gemma-3n-e4b-it": (
+                "google/gemma-3n-E4B-it",
+                "gemma-3n-e4b-it",
+                "together",
+            ),
             "llama-3-1-8b-instruct": (
                 "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
                 "llama-3-1-8b-instruct",
@@ -234,13 +353,21 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                 "qwen-3-235b-a22b-instruct",
                 "together",
             ),
-            "qwen-3-235b-a22b": ("Qwen/Qwen3-235B-A22B-fp8-tput", "qwen-3-235b-a22b", "together"),
+            "qwen-3-235b-a22b": (
+                "Qwen/Qwen3-235B-A22B-fp8-tput",
+                "qwen-3-235b-a22b",
+                "together",
+            ),
             "qwen-3-32b": ("Qwen/Qwen3-32B", "qwen-3-32b", "together"),
             "qwen-3-14b": ("Qwen/Qwen3-14B", "qwen-3-14b", "together"),
             "qwen-3-14b-base": ("Qwen/Qwen3-14B-Base", "qwen-3-14b-base", "together"),
             "qwen-3-8b": ("Qwen/Qwen3-8B", "qwen-3-8b", "together"),
             "qwen-3-8b-base": ("Qwen/Qwen3-8B-Base", "qwen-3-8b-base", "together"),
-            "qwen-2-5-7b": ("Qwen/Qwen2.5-7B-Instruct-Turbo", "qwen-2-5-7b", "together"),
+            "qwen-2-5-7b": (
+                "Qwen/Qwen2.5-7B-Instruct-Turbo",
+                "qwen-2-5-7b",
+                "together",
+            ),
             "mistral-small-24b-instruct-2501": (
                 "mistralai/Mistral-Small-24B-Instruct-2501",
                 "mistral-small-24b-instruct-2501",
@@ -251,7 +378,11 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
             # "gemini-2.5-flash": ("gemini-2.5-flash", "gemini-2.5-flash", "google"), # Not supported by safetytooling
             "gemini-2.5-pro": ("gemini-2.5-pro", "gemini-2.5-pro", "google"),
             # Missing neurips policies - adding them
-            "claude-3-5-haiku": ("claude-3-5-haiku-20241022", "claude-3-5-haiku", "anthropic"),
+            "claude-3-5-haiku": (
+                "claude-3-5-haiku-20241022",
+                "claude-3-5-haiku",
+                "anthropic",
+            ),
             "gpt-4o": ("gpt-4o-2024-11-20", "gpt-4o", "openai"),
         }
 
@@ -278,11 +409,15 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
         model_name = model_name + colloquial_name_suffix
 
         if kwargs.get("disable_reasoning", False):
-            raise NotImplementedError("disable_reasoning is supported only for local models.")
+            raise NotImplementedError(
+                "disable_reasoning is supported only for local models."
+            )
 
         if bool(eval(os.getenv("USE_RAY", "0"))):
             if bool(eval(os.getenv("USE_BATCH", "0"))):
-                raise NotImplementedError("RayAPIModel does not support batch inference.")
+                raise NotImplementedError(
+                    "RayAPIModel does not support batch inference."
+                )
             PolicyClass = RayAPIModel
         elif bool(eval(os.getenv("USE_BATCH", "0"))):
             PolicyClass = BatchAPIModel
@@ -298,7 +433,12 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
             dedup="message",
             max_count=5,
         )
-        return PolicyClass(model_name=model_id, model_provider=provider, colloquial_name=model_name, **kwargs)
+        return PolicyClass(
+            model_name=model_id,
+            model_provider=provider,
+            colloquial_name=model_name,
+            **kwargs,
+        )
 
     saved_model_glob = Path("data/models").glob(f"**/{policy_spec}*")
     matched_models = list(saved_model_glob)
@@ -325,10 +465,16 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
             kwargs["response_only"] = True
 
         logger.major(
-            "Using response_only={} for {}", kwargs["response_only"], policy_spec, dedup="message_stem", max_count=5
+            "Using response_only={} for {}",
+            kwargs["response_only"],
+            policy_spec,
+            dedup="message_stem",
+            max_count=5,
         )
 
-    disable_reasoning = kwargs.get("disable_reasoning", int(os.getenv("DISABLE_REASONING", "0")) == 1)
+    disable_reasoning = kwargs.get(
+        "disable_reasoning", int(os.getenv("DISABLE_REASONING", "0")) == 1
+    )
     if disable_reasoning and LocalModel._reasoning_model_type(policy_spec):
         colloquial_name_suffix = "-nothink" + colloquial_name_suffix
 
@@ -344,9 +490,13 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                 if "api_model_id" in metadata:
                     model_type = "api"
                 elif "base_model" in metadata:
-                    logger.major(f"Recursively loading base model to determine model type: {metadata['base_model']}")
+                    logger.major(
+                        f"Recursively loading base model to determine model type: {metadata['base_model']}"
+                    )
                     try:
-                        base_policy_obj = create_policy_from_string(metadata["base_model"])
+                        base_policy_obj = create_policy_from_string(
+                            metadata["base_model"]
+                        )
                     except Exception as e:
                         import traceback
 
@@ -356,13 +506,17 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                             str(e) + traceback.format_exc(),
                         )
                         base_policy_obj = LocalModel(model_name=metadata["base_model"])
-                    model_type = "api" if isinstance(base_policy_obj, APIModel) else "local"
+                    model_type = (
+                        "api" if isinstance(base_policy_obj, APIModel) else "local"
+                    )
                 else:
                     raise ValueError(
                         f"Model type not inferrable from metadata; please ensure 'api_model_id' or 'base_model' is present: {metadata}"
                     )
             else:
-                logger.minor(f"INFO: No metadata found for {policy_spec}, defaulting to local model")
+                logger.minor(
+                    f"INFO: No metadata found for {policy_spec}, defaulting to local model"
+                )
                 model_type = "local"
                 metadata = {}
 
@@ -382,14 +536,16 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                     PolicyClass.__name__,
                     model_id,
                     provider,
-                    metadata.get("colloquial_name", policy_spec) + colloquial_name_suffix,
+                    metadata.get("colloquial_name", policy_spec)
+                    + colloquial_name_suffix,
                     dedup="message",
                     max_count=5,
                 )
                 return PolicyClass(
                     model_name=model_id,
                     model_provider=provider,
-                    colloquial_name=metadata.get("colloquial_name", policy_spec) + colloquial_name_suffix,
+                    colloquial_name=metadata.get("colloquial_name", policy_spec)
+                    + colloquial_name_suffix,
                     **kwargs,
                 )
             elif model_type == "local":  # For local models
@@ -398,28 +554,46 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
                         "Creating {}: {} {}",
                         LocalModel.__name__,
                         str(saved_model_path),
-                        metadata.get("colloquial_name", policy_spec) + colloquial_name_suffix,
+                        metadata.get("colloquial_name", policy_spec)
+                        + colloquial_name_suffix,
                         dedup="message",
                         max_count=5,
                     )
                     return LocalModel(
                         model_name=str(saved_model_path),
-                        colloquial_name=metadata.get("colloquial_name", policy_spec) + colloquial_name_suffix,
+                        colloquial_name=metadata.get("colloquial_name", policy_spec)
+                        + colloquial_name_suffix,
                         temperature=metadata.get("temperature", 0.25),
                         max_tokens=metadata.get("max_tokens", 8192),
                         **kwargs,
                     )
                 else:
-                    raise ImportError("LocalModel not available for loading saved model")
+                    raise ImportError(
+                        "LocalModel not available for loading saved model"
+                    )
             else:
-                raise ValueError(f"Unexpected internal error: inferred model type {model_type} is not expected.")
+                raise ValueError(
+                    f"Unexpected internal error: inferred model type {model_type} is not expected."
+                )
 
     # Check for embedding models (don't use OpenRouter for these)
     embedding_models = {
         "gemini-embedding-001": ("gemini-embedding-001", "Gemini Embedding", "google"),
-        "Qwen/Qwen3-Embedding-8B": ("Qwen/Qwen3-Embedding-8B", "Qwen3-8B-Embed", "local"),
-        "Qwen/Qwen3-Embedding-4B": ("Qwen/Qwen3-Embedding-4B", "Qwen3-4B-Embed", "local"),
-        "Qwen/Qwen3-Embedding-0.6B": ("Qwen/Qwen3-Embedding-0.6B", "Qwen3-0.6B-Embed", "local"),
+        "Qwen/Qwen3-Embedding-8B": (
+            "Qwen/Qwen3-Embedding-8B",
+            "Qwen3-8B-Embed",
+            "local",
+        ),
+        "Qwen/Qwen3-Embedding-4B": (
+            "Qwen/Qwen3-Embedding-4B",
+            "Qwen3-4B-Embed",
+            "local",
+        ),
+        "Qwen/Qwen3-Embedding-0.6B": (
+            "Qwen/Qwen3-Embedding-0.6B",
+            "Qwen3-0.6B-Embed",
+            "local",
+        ),
     }
 
     if policy_spec in embedding_models:
@@ -467,9 +641,18 @@ def create_policy_from_string(policy_spec: str, use_openrouter: bool = None, **k
     if len(colloquial_name) <= 3:
         colloquial_name = None
 
-    logger.urgent("Creating local model: {} {}", policy_spec, colloquial_name, dedup="message", max_count=5)
+    logger.urgent(
+        "Creating local model: {} {}",
+        policy_spec,
+        colloquial_name,
+        dedup="message",
+        max_count=5,
+    )
     return LocalModel(
-        model_name=policy_spec, colloquial_name=colloquial_name, disable_reasoning=disable_reasoning, **kwargs
+        model_name=policy_spec,
+        colloquial_name=colloquial_name,
+        disable_reasoning=disable_reasoning,
+        **kwargs,
     )
 
 
@@ -632,7 +815,9 @@ def is_likely_policy_name(s: str) -> bool:
     return False
 
 
-def parse_run_on_trained(path: str) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+def parse_run_on_trained(
+    path: str,
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """
     Parse a run directory path or its children to extract training information.
 
@@ -802,7 +987,17 @@ def extract_policy_names_from_path(path: str) -> list[str]:
         if i == len(path_parts) - 1 and "." in part:
             last_dot_idx = part.rfind(".")
             potential_ext = part[last_dot_idx + 1 :]
-            if potential_ext.lower() in ["pdf", "json", "txt", "md", "png", "jpg", "html", "csv", "log"]:
+            if potential_ext.lower() in [
+                "pdf",
+                "json",
+                "txt",
+                "md",
+                "png",
+                "jpg",
+                "html",
+                "csv",
+                "log",
+            ]:
                 base_part = part[:last_dot_idx]
             else:
                 base_part = part
@@ -823,7 +1018,11 @@ def extract_policy_names_from_path(path: str) -> list[str]:
             # If it does, we should extract from within it
             u_part_lower = u_part.lower()
             has_non_model_prefix = False
-            for prefix in ["bias-eval-results", "worldintheloop", "mutualpredictstrategy"]:
+            for prefix in [
+                "bias-eval-results",
+                "worldintheloop",
+                "mutualpredictstrategy",
+            ]:
                 if prefix in u_part_lower:
                     has_non_model_prefix = True
                     break
@@ -888,17 +1087,31 @@ def extract_policy_names_from_path(path: str) -> list[str]:
                             # Include if it's a known continuation, version number, or size
                             if (
                                 next_lower in model_continuations
-                                or re.match(r"^[0-9]", next_comp)  # Starts with number (version)
-                                or re.match(r"^[0-9]+[bBmMkK]", next_comp)  # Size like 3B, 70M
+                                or re.match(
+                                    r"^[0-9]", next_comp
+                                )  # Starts with number (version)
+                                or re.match(
+                                    r"^[0-9]+[bBmMkK]", next_comp
+                                )  # Size like 3B, 70M
                                 or re.match(r"^v[0-9]", next_lower)  # Version like v3
-                                or re.match(r"^o[0-9]", next_lower)  # OpenAI o1, o3 style
-                                or re.match(r"^[0-9]+\.[0-9]+", next_comp)  # Version like 3.1
+                                or re.match(
+                                    r"^o[0-9]", next_lower
+                                )  # OpenAI o1, o3 style
+                                or re.match(
+                                    r"^[0-9]+\.[0-9]+", next_comp
+                                )  # Version like 3.1
                                 or
                                 # Year/date patterns that are often part of model names
-                                re.match(r"^20[0-9]{2}", next_comp)  # Year like 2024, 2503
+                                re.match(
+                                    r"^20[0-9]{2}", next_comp
+                                )  # Year like 2024, 2503
                                 or
                                 # Single letters that might be part of model names (like V3, A3B)
-                                (len(next_comp) == 1 and next_comp.upper() in "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                                (
+                                    len(next_comp) == 1
+                                    and next_comp.upper()
+                                    in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                )
                                 or
                                 # Common in model names
                                 next_lower in ["base", "instruct", "chat"]

@@ -49,7 +49,9 @@ class Research(ProblemDomain):
         # Partition questions
         self.make_questions_splits(self.train_size)
 
-    def __add_sycophancy(self, question: BinaryProblem) -> tuple[BinaryProblem, BinaryProblem]:
+    def __add_sycophancy(
+        self, question: BinaryProblem
+    ) -> tuple[BinaryProblem, BinaryProblem]:
         """Add sycophancy to a question.
 
         :param question: the question to add sycophancy to

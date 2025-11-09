@@ -16,7 +16,12 @@ def start_loop() -> asyncio.BaseEventLoop:
     return CUR_LOOP
 
 
-async def await_with_retry(coroutine, max_retries: int = 5, retry_delay: float = 1.0, retry_exp_base: float = 2.0):
+async def await_with_retry(
+    coroutine,
+    max_retries: int = 5,
+    retry_delay: float = 1.0,
+    retry_exp_base: float = 2.0,
+):
     "Run an async function from a sync environment, with a retry mechanism."
     from utils.io_utils import logger
 
@@ -29,7 +34,9 @@ async def await_with_retry(coroutine, max_retries: int = 5, retry_delay: float =
     raise Exception(f"Failed after {max_retries} retries")
 
 
-async def await_with_pbar(coroutine, pbar: Optional[tqdm] = None, update_amount: int = 1):
+async def await_with_pbar(
+    coroutine, pbar: Optional[tqdm] = None, update_amount: int = 1
+):
     "Run an async function from a sync environment, with a progress bar."
     result = await coroutine
     if pbar is not None:

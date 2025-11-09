@@ -76,7 +76,7 @@ class BatchAPIModel(APIModel):
     to provider batch APIs for cost efficiency.
 
     This model only supports async inference and batches requests automatically.
-    Regular infer_single() calls will raise NotImplementedError.
+    Regular infer_from_history() calls will raise NotImplementedError.
     """
 
     # Provider batch size limits (conservative estimates)
@@ -118,7 +118,13 @@ class BatchAPIModel(APIModel):
         :param log_dir: Directory for batch logs
         :param cache_dir: Directory for batch cache
         """
-        super().__init__(model_name, colloquial_name, system_prompt, model_provider, few_shot_examples)
+        super().__init__(
+            model_name,
+            colloquial_name,
+            system_prompt,
+            model_provider,
+            few_shot_examples,
+        )
 
         # Determine the actual provider
         self._actual_provider = self._detect_provider()
@@ -137,11 +143,17 @@ class BatchAPIModel(APIModel):
             )
 
         # Set batch parameters
-        self.batch_timeout = batch_timeout or self.DEFAULT_TIMEOUTS.get(self._actual_provider, 74400)  # 24 hours
-        self.max_batch_size = max_batch_size or self.BATCH_SIZE_LIMITS[self._actual_provider]
+        self.batch_timeout = batch_timeout or self.DEFAULT_TIMEOUTS.get(
+            self._actual_provider, 74400
+        )  # 24 hours
+        self.max_batch_size = (
+            max_batch_size or self.BATCH_SIZE_LIMITS[self._actual_provider]
+        )
 
         # Initialize batch API
-        self.batch_api = BatchInferenceAPI(log_dir=log_dir or "default", cache_dir=cache_dir or "default")
+        self.batch_api = BatchInferenceAPI(
+            log_dir=log_dir or "default", cache_dir=cache_dir or "default"
+        )
 
         # Synchronization primitives
         self._pending_requests: list[PendingRequest] = []
@@ -187,11 +199,15 @@ class BatchAPIModel(APIModel):
         """Start the background batch processor task."""
         if self._batch_processor_task is None or self._batch_processor_task.done():
             try:
-                self._batch_processor_task = asyncio.create_task(self._batch_processor())
+                self._batch_processor_task = asyncio.create_task(
+                    self._batch_processor()
+                )
             except RuntimeError as e:
                 if "no running event loop" in str(e):
                     # This is expected during initialization - task will be started when needed
-                    logger.debug("No event loop available for batch processor - will start later")
+                    logger.debug(
+                        "No event loop available for batch processor - will start later"
+                    )
                 else:
                     raise
 
@@ -213,7 +229,8 @@ class BatchAPIModel(APIModel):
                     try:
                         await asyncio.wait_for(
                             self._batch_condition.wait_for(
-                                lambda: len(self._pending_requests) > 0 or self._shutdown_event.is_set()
+                                lambda: len(self._pending_requests) > 0
+                                or self._shutdown_event.is_set()
                             ),
                             timeout=self.batch_timeout,
                         )
@@ -224,8 +241,11 @@ class BatchAPIModel(APIModel):
                         break
 
                     # Check if we should submit a batch
-                    should_submit = len(self._pending_requests) >= self.max_batch_size or (  # Size limit reached
-                        len(self._pending_requests) > 0 and self._should_submit_by_timeout()
+                    should_submit = len(
+                        self._pending_requests
+                    ) >= self.max_batch_size or (  # Size limit reached
+                        len(self._pending_requests) > 0
+                        and self._should_submit_by_timeout()
                     )  # Timeout reached
 
                     if should_submit:
@@ -272,11 +292,18 @@ class BatchAPIModel(APIModel):
                     history = deepcopy(req.history)
 
                 # Add system prompt if needed
-                if self.system_prompt and not any(msg.get("role") == "system" for msg in history):
+                if self.system_prompt and not any(
+                    msg.get("role") == "system" for msg in history
+                ):
                     history.insert(0, {"role": "system", "content": self.system_prompt})
 
                 prompt = Prompt(
-                    messages=[ChatMessage(content=msg["content"], role=MessageRole(msg["role"])) for msg in history]
+                    messages=[
+                        ChatMessage(
+                            content=msg["content"], role=MessageRole(msg["role"])
+                        )
+                        for msg in history
+                    ]
                 )
                 prompts.append(prompt)
 
@@ -346,14 +373,18 @@ class BatchAPIModel(APIModel):
                 )
                 batch_job.batch_id = actual_batch_id
 
-                logger.info(f"Batch {batch_job.job_id} completed with batch_id {actual_batch_id}")
+                logger.info(
+                    f"Batch {batch_job.job_id} completed with batch_id {actual_batch_id}"
+                )
 
                 # Distribute results to waiting requests
                 await self._distribute_batch_results(batch_job, responses)
                 return  # Success, exit retry loop
 
             except Exception as e:
-                logger.error(f"Batch {batch_job.job_id} failed on attempt {attempt + 1}: {e}")
+                logger.error(
+                    f"Batch {batch_job.job_id} failed on attempt {attempt + 1}: {e}"
+                )
 
                 if attempt < max_retries - 1:
                     # Wait before retrying with exponential backoff
@@ -361,12 +392,16 @@ class BatchAPIModel(APIModel):
                     retry_delay *= 2
                 else:
                     # Final attempt failed, fail all requests
-                    logger.error(f"Batch {batch_job.job_id} failed after {max_retries} attempts")
+                    logger.error(
+                        f"Batch {batch_job.job_id} failed after {max_retries} attempts"
+                    )
                     for req in batch_job.requests:
                         if not req.future.done():
                             req.future.set_exception(e)
 
-    async def _distribute_batch_results(self, batch_job: BatchJob, responses: list[LLMResponse]):
+    async def _distribute_batch_results(
+        self, batch_job: BatchJob, responses: list[LLMResponse]
+    ):
         """Distribute batch results to the corresponding request futures."""
         # Safety_tooling returns responses in the same order as input prompts
         if len(responses) != len(batch_job.requests):
@@ -384,20 +419,30 @@ class BatchAPIModel(APIModel):
             return
 
         # Distribute results by index
-        for i, (req, response) in enumerate(zip(batch_job.requests, responses, strict=False)):
+        for i, (req, response) in enumerate(
+            zip(batch_job.requests, responses, strict=False)
+        ):
             try:
                 if response is not None and response.completion:
                     req.future.set_result(response.completion)
                 elif response is None:
-                    req.future.set_exception(RuntimeError(f"Request {req.request_id} failed: batch API returned None"))
+                    req.future.set_exception(
+                        RuntimeError(
+                            f"Request {req.request_id} failed: batch API returned None"
+                        )
+                    )
                 else:
-                    req.future.set_exception(RuntimeError(f"Empty response for request {req.request_id}"))
+                    req.future.set_exception(
+                        RuntimeError(f"Empty response for request {req.request_id}")
+                    )
             except Exception as e:
-                logger.error(f"Error distributing result for request {req.request_id}: {e}")
+                logger.error(
+                    f"Error distributing result for request {req.request_id}: {e}"
+                )
                 if not req.future.done():
                     req.future.set_exception(e)
 
-    async def infer_single_async(
+    async def infer_from_history_async(
         self,
         history: Union[list[dict[str, str]], str],
         disable_system_prompt: bool = False,
@@ -427,7 +472,9 @@ class BatchAPIModel(APIModel):
         # Handle system prompt
         if not disable_system_prompt and self.system_prompt:
             if not any(msg.get("role") == "system" for msg in processed_history):
-                processed_history.insert(0, {"role": "system", "content": self.system_prompt})
+                processed_history.insert(
+                    0, {"role": "system", "content": self.system_prompt}
+                )
 
         # Set default parameters
         if "temperature" not in kwargs:
@@ -438,11 +485,18 @@ class BatchAPIModel(APIModel):
         # Remove presence_penalty for Claude models
         if "claude" in self.model_name and "presence_penalty" in kwargs:
             if float(kwargs["presence_penalty"]) != 0:
-                warnings.warn("Claude API doesn't support presence penalty. Ignoring the penalty.")
+                warnings.warn(
+                    "Claude API doesn't support presence penalty. Ignoring the penalty."
+                )
             del kwargs["presence_penalty"]
 
         # Create pending request
-        pending_request = PendingRequest(request_id=request_id, history=processed_history, kwargs=kwargs, future=future)
+        pending_request = PendingRequest(
+            request_id=request_id,
+            history=processed_history,
+            kwargs=kwargs,
+            future=future,
+        )
 
         # Add to pending requests
         async with self._batch_condition:
@@ -450,7 +504,9 @@ class BatchAPIModel(APIModel):
             self._total_requests += 1
             self._batch_condition.notify()
 
-        logger.debug(f"Queued request {request_id}, {len(self._pending_requests)} pending")
+        logger.debug(
+            f"Queued request {request_id}, {len(self._pending_requests)} pending"
+        )
 
         # Wait for result
         try:
@@ -460,7 +516,9 @@ class BatchAPIModel(APIModel):
             logger.error(f"Request {request_id} failed: {e}")
             raise
 
-    async def infer_batch_async(self, histories: list[Union[list[dict[str, str]], str]], **kwargs) -> list[str]:
+    async def infer_from_histories_async(
+        self, histories: list[Union[list[dict[str, str]], str]], **kwargs
+    ) -> list[str]:
         """
         Process multiple inference requests concurrently.
 
@@ -469,7 +527,7 @@ class BatchAPIModel(APIModel):
         """
         tasks = []
         for history in histories:
-            task = asyncio.create_task(self.infer_single_async(history, **kwargs))
+            task = asyncio.create_task(self.infer_from_history_async(history, **kwargs))
             tasks.append(task)
 
         results = await asyncio.gather(*tasks)

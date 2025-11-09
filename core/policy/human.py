@@ -15,7 +15,11 @@ class Human(Policy):
 
     _input_lock = asyncio.Lock()
 
-    def __init__(self, colloquial_name: str = "human", few_shot_examples: list[dict[str, str]] = None):
+    def __init__(
+        self,
+        colloquial_name: str = "human",
+        few_shot_examples: list[dict[str, str]] = None,
+    ):
         """
         Initialize a Human policy.
 
@@ -111,8 +115,11 @@ class Human(Policy):
 
         return response
 
-    async def infer_single_async(
-        self, history: list[dict[str, str]] | str, disable_system_prompt: bool = False, **kwargs
+    async def infer_from_history_async(
+        self,
+        history: list[dict[str, str]] | str,
+        disable_system_prompt: bool = False,
+        **kwargs,
     ) -> str:
         """
         Display conversation and get human response.

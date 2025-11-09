@@ -82,7 +82,9 @@ class PythonGrader(Grader):
                 try:
                     self._source_code = inspect.getsource(self.grading_function)
                 except Exception as e:
-                    raise ValueError("Cannot serialize grader function to OpenAI spec") from e
+                    raise ValueError(
+                        "Cannot serialize grader function to OpenAI spec"
+                    ) from e
             else:
                 # Need to wrap it
                 try:
@@ -93,11 +95,15 @@ class PythonGrader(Grader):
     return {func_name}(sample, item)
 """
                 except Exception as e:
-                    raise ValueError("Cannot serialize grader function to OpenAI spec") from e
+                    raise ValueError(
+                        "Cannot serialize grader function to OpenAI spec"
+                    ) from e
 
         return {"type": "python", "source": self._source_code}
 
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample using the Python function.
 
@@ -108,7 +114,8 @@ class PythonGrader(Grader):
         # Convert SingleSample to the format expected by OpenAI's grader
         sample_dict = {
             "output_text": sample.output,
-            "messages": sample.history + [{"role": "assistant", "content": sample.output}],
+            "messages": sample.history
+            + [{"role": "assistant", "content": sample.output}],
         }
 
         # Add any aux_info to the sample dict

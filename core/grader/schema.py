@@ -40,7 +40,9 @@ class Grader(ABC):
         return run_coroutine(self.grade_async(sample, item))
 
     @abstractmethod
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample and return a reward/score.
         """
@@ -68,7 +70,9 @@ class Grader(ABC):
         return problems
 
 
-def create_grader_from_spec(spec: Union[str, dict, Callable[[dict, dict], float]]) -> Grader:
+def create_grader_from_spec(
+    spec: Union[str, dict, Callable[[dict, dict], float]]
+) -> Grader:
     """
     Create a grader from a specification.
 
@@ -78,7 +82,9 @@ def create_grader_from_spec(spec: Union[str, dict, Callable[[dict, dict], float]
     if isinstance(spec, str):
         if "{" not in spec:
             # Handle string as grader class name (e.g., "PythonBrierGrader")
-            transformed_spec = re.sub(r"(?<!^)(?=[A-Z])", "_", spec).lower().replace("_grader", "")
+            transformed_spec = (
+                re.sub(r"(?<!^)(?=[A-Z])", "_", spec).lower().replace("_grader", "")
+            )
             return create_grader_from_spec({"type": transformed_spec})
 
         else:
@@ -98,7 +104,9 @@ def create_grader_from_spec(spec: Union[str, dict, Callable[[dict, dict], float]
         return PythonGrader(spec)
 
     if not isinstance(spec, dict):
-        raise ValueError(f"Invalid grader spec type: {type(spec)}. Must be dict or callable.")
+        raise ValueError(
+            f"Invalid grader spec type: {type(spec)}. Must be dict or callable."
+        )
 
     grader_type = spec.get("type")
 
@@ -161,7 +169,9 @@ def create_grader_from_env() -> Grader | None:
                 dedup="message_stem",
             )
 
-        logger.major("INFO: Created ModelGrader with model: {}", model, dedup="message_stem")
+        logger.major(
+            "INFO: Created ModelGrader with model: {}", model, dedup="message_stem"
+        )
         return ModelGrader.create_default(model)
 
     elif grader_type == "python_brier":
@@ -182,7 +192,9 @@ def create_grader_from_env() -> Grader | None:
                 dedup="message_stem",
             )
 
-        logger.major("INFO: Created ModelBrierGrader with model: {}", model, dedup="message_stem")
+        logger.major(
+            "INFO: Created ModelBrierGrader with model: {}", model, dedup="message_stem"
+        )
         return ModelBrierGrader(model=model)
 
     elif grader_type == "model_agreement":
@@ -197,7 +209,11 @@ def create_grader_from_env() -> Grader | None:
                 dedup="message_stem",
             )
 
-        logger.major("INFO: Created ModelAgreementGrader with model: {}", model, dedup="message_stem")
+        logger.major(
+            "INFO: Created ModelAgreementGrader with model: {}",
+            model,
+            dedup="message_stem",
+        )
         return ModelAgreementGrader(model=model)
 
     else:

@@ -1421,7 +1421,7 @@ class RayAPIModel(APIModel):
             request_id,
         )
 
-    async def infer_single_async(
+    async def infer_from_history_async(
         self,
         history: list[dict[str, str]] | str,
         disable_system_prompt: bool = False,
@@ -1466,7 +1466,7 @@ class RayAPIModel(APIModel):
 
         return response.completion
 
-    async def infer_batch_async(
+    async def infer_from_histories_async(
         self,
         histories: list[list[dict[str, str]]] | list[str],
         disable_system_prompt: bool = False,

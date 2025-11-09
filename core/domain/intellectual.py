@@ -90,7 +90,9 @@ class IntellectualDemonstration(ProblemDomain):
         # Create train/test splits
         self.make_questions_splits(self.train_size)
 
-    def _load_all_unified_data(self, data_files: Union[list[str], dict[str, int]]) -> list[Problem]:
+    def _load_all_unified_data(
+        self, data_files: Union[list[str], dict[str, int]]
+    ) -> list[Problem]:
         """
         Load Q&A data from unified format files.
 
@@ -122,7 +124,9 @@ class IntellectualDemonstration(ProblemDomain):
 
                 # Apply sampling if limit specified
                 if sample_limit is not None and sample_limit < len(qa_pairs):
-                    logger.major(f"  Sampling {sample_limit} from {len(qa_pairs)} available")
+                    logger.major(
+                        f"  Sampling {sample_limit} from {len(qa_pairs)} available"
+                    )
                     qa_pairs = qa_pairs[:sample_limit]
                     # indices = self._rng.choice(
                     #     len(qa_pairs), size=sample_limit, replace=False
@@ -195,7 +199,9 @@ class IntellectualDemonstration(ProblemDomain):
 
         # Log source distribution
         logger.major("\nSource distribution:")
-        for source, count in sorted(sources_count.items(), key=lambda x: x[1], reverse=True)[:20]:
+        for source, count in sorted(
+            sources_count.items(), key=lambda x: x[1], reverse=True
+        )[:20]:
             logger.major(f"  {source}: {count}")
 
         return all_problems
@@ -233,7 +239,9 @@ class IntellectualDemonstration(ProblemDomain):
             else:
                 sampled = cat_problems
             balanced.extend(sampled)
-            logger.major(f"  Category {category}: sampled {sample_size} from {len(cat_problems)}")
+            logger.major(
+                f"  Category {category}: sampled {sample_size} from {len(cat_problems)}"
+            )
 
         # Shuffle using RNG
         self._rng.shuffle(balanced)
@@ -279,12 +287,16 @@ class IntellectualDemonstration(ProblemDomain):
         samples = []
         # Use RNG for sampling
         num_samples = min(n, len(self.questions_all))
-        indices = self._rng.choice(len(self.questions_all), size=num_samples, replace=False)
+        indices = self._rng.choice(
+            len(self.questions_all), size=num_samples, replace=False
+        )
         problems = [self.questions_all[i] for i in indices]
 
         for problem in problems:
             question = problem.question
-            answer = problem.aux_info.get("answer", problem.aux_info.get("ground_truth", "No answer"))
+            answer = problem.aux_info.get(
+                "answer", problem.aux_info.get("ground_truth", "No answer")
+            )
             source = problem.aux_info.get("source", "unknown")
             samples.append((question, answer, source))
 

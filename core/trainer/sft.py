@@ -1,6 +1,6 @@
 """
 Supervised Fine-Tuning (SFT) trainer.
-Takes top-scoring trajectories and fine-tunes a policy on them.
+Takes samples and fine-tunes a policy on them.
 """
 
 import dataclasses
@@ -8,7 +8,6 @@ import os
 from typing import Optional
 
 from core.policy.schema import Policy, SingleSample
-from core.reasoning.schema import ReasoningMode, ReasoningTrajectory
 from core.trainer.schema import Trainer, TrainingConfig
 from utils.io_utils import logger
 
@@ -51,7 +50,9 @@ class SFTConfig(TrainingConfig):
         if os.getenv("SFT_BATCH_SIZE"):
             config.batch_size = int(os.getenv("SFT_BATCH_SIZE"))
         if os.getenv("SFT_GRADIENT_ACCUMULATION_STEPS"):
-            config.gradient_accumulation_steps = int(os.getenv("SFT_GRADIENT_ACCUMULATION_STEPS"))
+            config.gradient_accumulation_steps = int(
+                os.getenv("SFT_GRADIENT_ACCUMULATION_STEPS")
+            )
         if os.getenv("SFT_WARMUP_RATIO"):
             config.warmup_ratio = float(os.getenv("SFT_WARMUP_RATIO"))
         if os.getenv("SFT_WEIGHT_DECAY"):
@@ -121,111 +122,80 @@ class SFTTrainer(Trainer):
     async def train_async(
         self,
         policy: Policy,
-        trajectory_score_files: list[str],
-        reasoning_mode: Optional[ReasoningMode] = None,
+        samples: list[SingleSample],
         **kwargs,
     ) -> Policy:
         """
-        Fine-tune a policy on top-scoring trajectories.
+        Fine-tune a policy on provided samples.
 
         :param policy: The base policy to fine-tune
-        :param trajectory_score_files: Paths to the sorted trajectories files
-        :param reasoning_mode: The reasoning mode used (for trajectory_to_samples conversion)
+        :param samples: List of SingleSample to train on
         :param kwargs: Additional training arguments
         :return: The fine-tuned policy
         """
-        # Select top trajectories. Scores from different files may be incomparable, so we need to select top trajectories from each file separately.
-        top_trajectories = []
-        total_trajectories = 0
-        for score_file in trajectory_score_files:
-            trajectory_score_pairs = self.load_trajectory_scores(score_file)
-            if trajectory_score_pairs:
-                total_trajectories += len(trajectory_score_pairs)
-                top_trajectories.extend(
-                    self.select_top_trajectories(
-                        trajectory_score_pairs,
-                        top_percentage=self.config.top_percentage,
-                        top_count=None,
-                        use_min=False,
-                    )
-                )
+        if not samples:
+            raise ValueError("No training samples provided")
 
-        logger.major(
-            f"Selected {len(top_trajectories)} top trajectories out of {total_trajectories} total from {len(trajectory_score_files)} files"
-        )
-
-        if not top_trajectories:
-            raise ValueError(f"Insufficiently many trajectories found in {trajectory_score_files}")
+        logger.major(f"Received {len(samples)} training samples")
 
         # Handle validation based on strategy
         validation_samples = None
         training_samples = None
 
         if self.config.validation_strategy == "none":
-            # No validation, use all trajectories for training
-            training_samples = self.trajectories_to_samples(top_trajectories, reasoning_mode)
-            logger.major(f"Created {len(training_samples)} training samples (no validation)")
+            # No validation, use all samples for training
+            training_samples = samples
+            logger.major(
+                f"Using all {len(training_samples)} samples for training (no validation)"
+            )
 
         elif self.config.validation_strategy == "train":
             # Split from training set
-            all_samples = self.trajectories_to_samples(top_trajectories, reasoning_mode)
-            val_size = self.determine_validation_size(len(all_samples))
+            val_size = self.determine_validation_size(len(samples))
 
             if val_size > 0:
-                training_samples, validation_samples = self.split_train_validation(all_samples, val_size)
+                training_samples, validation_samples = self.split_train_validation(
+                    samples, val_size
+                )
                 logger.major(
-                    f"Split {len(all_samples)} samples into {len(training_samples)} training and {len(validation_samples)} validation"
+                    f"Split {len(samples)} samples into {len(training_samples)} training and {len(validation_samples)} validation"
                 )
             else:
-                training_samples = all_samples
-                logger.urgent(f"Too few samples ({len(all_samples)}) for validation split, using all for training")
+                training_samples = samples
+                logger.urgent(
+                    f"Too few samples ({len(samples)}) for validation split, using all for training"
+                )
 
         elif self.config.validation_strategy == "gt":
-            # Ground truth filtering
-            original_count = len(top_trajectories)
-            filtered_trajectories = self.filter_ground_truth_validation(top_trajectories)
-
-            if not filtered_trajectories:
-                raise ValueError(
-                    f"No trajectories remain after ground truth filtering (original: {original_count}). "
-                    "Ensure trajectories have correct_option labels and aligned beliefs."
-                )
-
-            logger.major(
-                f"Ground truth filtering: {original_count} trajectories -> {len(filtered_trajectories)} remain"
+            # For GT validation, we would need Problem objects with ground truth
+            # Since we only have SingleSamples here, we can't do GT validation
+            logger.urgent(
+                "WARNING: GT validation strategy not supported when training directly on SingleSamples. "
+                "Using all samples for training."
             )
-
-            # Convert filtered trajectories to samples
-            all_samples = self.trajectories_to_samples(filtered_trajectories, reasoning_mode)
-            val_size = self.determine_validation_size(len(all_samples))
-
-            if val_size > 0:
-                training_samples, validation_samples = self.split_train_validation(all_samples, val_size)
-                logger.major(
-                    f"Split {len(all_samples)} GT-filtered samples into {len(training_samples)} training and {len(validation_samples)} validation"
-                )
-            else:
-                training_samples = all_samples
-                logger.urgent(
-                    f"No GT-filtered samples ({len(all_samples)}) for validation split, using all for training"
-                )
+            training_samples = samples
 
         # Prepare metadata
-        metadata = self.build_metadata(
-            policy,
-            trajectory_score_files,
-            num_samples=len(training_samples),
-            num_val_samples=len(validation_samples) if validation_samples else 0,
-            num_epochs=self.config.num_epochs,
-            validation_strategy=self.config.validation_strategy,
-            lora_rank=self.config.lora_rank,
+        metadata = {
+            "training_type": self.__class__.__name__,
+            "base_model": policy.colloquial_name,
+            "num_samples": len(training_samples),
+            "num_val_samples": len(validation_samples) if validation_samples else 0,
+            "num_epochs": self.config.num_epochs,
+            "validation_strategy": self.config.validation_strategy,
+            "lora_rank": self.config.lora_rank,
+            "config": self.config.to_dict(),
             **kwargs,
-        )
+        }
 
         # Fine-tune the policy using async method with validation set
         logger.major(
             f"Starting fine-tuning with {len(training_samples)} training samples"
-            + (f" and {len(validation_samples)} validation samples" if validation_samples else "")
+            + (
+                f" and {len(validation_samples)} validation samples"
+                if validation_samples
+                else ""
+            )
         )
 
         trained_policy = await policy.train_sft_async(
@@ -234,29 +204,3 @@ class SFTTrainer(Trainer):
 
         logger.major(f"Fine-tuning completed, trained policy: {trained_policy}")
         return trained_policy
-
-    def trajectories_to_samples(
-        self, trajectories: list[ReasoningTrajectory], reasoning_mode: Optional[ReasoningMode] = None
-    ) -> list[SingleSample]:
-        """
-        Convert trajectories to training samples.
-
-        :param trajectories: List of reasoning trajectories
-        :param reasoning_mode: The reasoning mode for conversion (required)
-        :return: List of SingleSample for training
-        """
-        if reasoning_mode is None:
-            raise ValueError("reasoning_mode is required for trajectory_to_samples conversion")
-
-        training_samples = []
-
-        for traj in trajectories:
-            try:
-                samples = reasoning_mode.trajectory_to_samples(traj)
-                training_samples.extend(samples)
-            except Exception as e:
-                print(f"WARNING: Failed to convert trajectory: {e}")
-                # Skip this trajectory if conversion fails
-                continue
-
-        return training_samples

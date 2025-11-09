@@ -150,7 +150,9 @@ Reasoning Coverage Score (0 to 1):""",
 
         return transformed
 
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample by assessing reasoning coverage compared to ground truth.
 
@@ -175,7 +177,9 @@ Reasoning Coverage Score (0 to 1):""",
         has_ground_truth = "ground_truth" in item
 
         if not has_ground_truth:
-            raise ValueError("ModelAgreementGrader requires 'ground_truth' in item or sample.aux_info")
+            raise ValueError(
+                "ModelAgreementGrader requires 'ground_truth' in item or sample.aux_info"
+            )
 
         # Add question from history if available
         if "question" not in item and sample.history:

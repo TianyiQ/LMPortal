@@ -71,7 +71,15 @@ class APIModel(Policy):
         model_name: str,
         colloquial_name: str | None = None,
         system_prompt: str | None = None,
-        model_provider: Literal["auto", "openai", "anthropic", "google", "together", "deepseek", "openrouter"] = "auto",
+        model_provider: Literal[
+            "auto",
+            "openai",
+            "anthropic",
+            "google",
+            "together",
+            "deepseek",
+            "openrouter",
+        ] = "auto",
         few_shot_examples: list[dict[str, str]] = None,
         response_only: bool = True,  # Unused, kept for compatibility
     ):
@@ -99,7 +107,7 @@ class APIModel(Policy):
             # Dial up temperature to avoid RECITATION errors
             self.temperature = 1.0
 
-    async def infer_single_async(
+    async def infer_from_history_async(
         self,
         history: list[dict[str, str]] | str,
         disable_system_prompt: bool = False,
@@ -108,8 +116,8 @@ class APIModel(Policy):
     ) -> str:
         """
         Given a dialogue history, return a single response.
-        By implementing this method, the `infer_single` and `infer_batch` methods will automatically be available for use.
-        You may pass additional arguments to the API call, for example `infer_single(..., temperature=0.25, is_valid=lambda s: len(s) > 5)`.
+        By implementing this method, the `infer_from_history` and `infer_from_histories` methods will automatically be available for use.
+        You may pass additional arguments to the API call, for example `infer_from_history(..., temperature=0.25, is_valid=lambda s: len(s) > 5)`.
 
         :param history: The dialogue history, in OpenAI format.
         :type history: list[dict[str, str]]
@@ -125,7 +133,11 @@ class APIModel(Policy):
         if self.few_shot_examples:
             history = self._prepend_few_shot_to_history(history)
 
-        if not disable_system_prompt and self.system_prompt and not any(msg.get("role") == "system" for msg in history):
+        if (
+            not disable_system_prompt
+            and self.system_prompt
+            and not any(msg.get("role") == "system" for msg in history)
+        ):
             history.insert(0, {"role": "system", "content": self.system_prompt})
 
         if not disable_logging:
@@ -137,7 +149,12 @@ class APIModel(Policy):
             )
 
         prompt = Prompt(
-            messages=[ChatMessage(content=message["content"], role=MessageRole(message["role"])) for message in history]
+            messages=[
+                ChatMessage(
+                    content=message["content"], role=MessageRole(message["role"])
+                )
+                for message in history
+            ]
         )
 
         if "temperature" not in kwargs:
@@ -150,7 +167,9 @@ class APIModel(Policy):
 
         if "claude" in self.model_name and "presence_penalty" in kwargs:
             if float(kwargs["presence_penalty"]) != 0:
-                warnings.warn("Claude API doesn't support presence penalty. Ignoring the penalty.")
+                warnings.warn(
+                    "Claude API doesn't support presence penalty. Ignoring the penalty."
+                )
 
             del kwargs["presence_penalty"]
 
@@ -164,8 +183,10 @@ class APIModel(Policy):
         for msg_idx in range(1, len(prompt.messages)):
             this_msg, last_msg = prompt.messages[msg_idx], prompt.messages[msg_idx - 1]
             is_valid = (
-                this_msg.role.value in ("user", "assistant")  # No system prompt after the first entry
-                and this_msg.role.value != last_msg.role.value  # No two consecutive speeches from same person
+                this_msg.role.value
+                in ("user", "assistant")  # No system prompt after the first entry
+                and this_msg.role.value
+                != last_msg.role.value  # No two consecutive speeches from same person
             )
             if not is_valid:
                 print(f"Malstructured query: {prompt}")
@@ -213,7 +234,9 @@ class APIModel(Policy):
         # Get Together API key
         api_key = os.getenv("TOGETHER_API_KEY")
         if not api_key:
-            raise RuntimeError("TOGETHER_API_KEY not found. Please set it in environment or lib/safety_tooling/.env")
+            raise RuntimeError(
+                "TOGETHER_API_KEY not found. Please set it in environment or lib/safety_tooling/.env"
+            )
 
         # Convert dialogue to completion format
         # Together's completion API expects a single prompt string
@@ -246,7 +269,10 @@ class APIModel(Policy):
 
         # Prepare the API request
         url = "https://api.together.xyz/v1/completions"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
 
         # Request parameters for Together completion API
         # When echo=True, we get logprobs for the entire prompt plus any generated tokens
@@ -265,7 +291,13 @@ class APIModel(Policy):
             "temperature": 0.0,  # Deterministic
             "echo": True,  # Critical: return prompt + completion with logprobs
             "logprobs": 1,  # Return top 1 logprob per token
-            "stop": ["<|endoftext|>", "<|eot_id|>", "\n\n", "User:", "Assistant:"],  # Stop sequences
+            "stop": [
+                "<|endoftext|>",
+                "<|eot_id|>",
+                "\n\n",
+                "User:",
+                "Assistant:",
+            ],  # Stop sequences
         }
 
         # Make the API request
@@ -274,7 +306,9 @@ class APIModel(Policy):
                 async with session.post(url, headers=headers, json=data) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        raise RuntimeError(f"Together API error (status {response.status}): {error_text}")
+                        raise RuntimeError(
+                            f"Together API error (status {response.status}): {error_text}"
+                        )
 
                     result = await response.json()
 
@@ -296,7 +330,9 @@ class APIModel(Policy):
                         if "logprobs" in prompt_data:
                             prompt_logprobs = prompt_data["logprobs"]
                             if "token_logprobs" in prompt_logprobs:
-                                all_token_logprobs.extend(prompt_logprobs["token_logprobs"])
+                                all_token_logprobs.extend(
+                                    prompt_logprobs["token_logprobs"]
+                                )
                             if "tokens" in prompt_logprobs:
                                 all_tokens.extend(prompt_logprobs["tokens"])
 
@@ -306,12 +342,16 @@ class APIModel(Policy):
                         if "logprobs" in choice:
                             choice_logprobs = choice["logprobs"]
                             if "token_logprobs" in choice_logprobs:
-                                all_token_logprobs.extend(choice_logprobs["token_logprobs"])
+                                all_token_logprobs.extend(
+                                    choice_logprobs["token_logprobs"]
+                                )
                             if "tokens" in choice_logprobs:
                                 all_tokens.extend(choice_logprobs["tokens"])
 
                     if not all_token_logprobs:
-                        raise ValueError("No token_logprobs found in Together API response")
+                        raise ValueError(
+                            "No token_logprobs found in Together API response"
+                        )
 
                     # Filter out None values (first token typically has None)
                     valid_logprobs = []
@@ -359,7 +399,9 @@ class APIModel(Policy):
         if self.model_provider == "together":
             return await self._logprobs_together(dialogue, return_summed, **kwargs)
         else:
-            raise NotImplementedError(f"Logprobs are not supported for {self.model_provider} models.")
+            raise NotImplementedError(
+                f"Logprobs are not supported for {self.model_provider} models."
+            )
 
     async def train_sft_async(
         self,
@@ -384,7 +426,9 @@ class APIModel(Policy):
 
                 use_wandb = True
             except ImportError:
-                logger.urgent("WandB OpenAI integration not found. Install with: pip install wandb")
+                logger.urgent(
+                    "WandB OpenAI integration not found. Install with: pip install wandb"
+                )
                 use_wandb = False
 
         # Only OpenAI and Together support fine-tuning
@@ -395,8 +439,12 @@ class APIModel(Policy):
             )
 
         # Create a deep copy early to get the colloquial_name for logging
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
-        temp_model = self.deep_copy(suffix_type="sft", suffix_data=samples, metadata=metadata)
+        timestamp = (
+            datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        )
+        temp_model = self.deep_copy(
+            suffix_type="sft", suffix_data=samples, metadata=metadata
+        )
         model_display_name = (
             temp_model.colloquial_name[:30] + "..."
             if len(temp_model.colloquial_name) > 30
@@ -407,7 +455,9 @@ class APIModel(Policy):
         training_data = []
         for sample in samples:
             # Format as OpenAI chat format
-            messages = sample.history + [{"role": "assistant", "content": sample.output}]
+            messages = sample.history + [
+                {"role": "assistant", "content": sample.output}
+            ]
             training_data.append({"messages": messages})
 
         # Save training data to temporary file
@@ -418,14 +468,18 @@ class APIModel(Policy):
             for item in training_data:
                 f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-        logger.major(f"[{model_display_name}] Saved {len(training_data)} training examples to {training_file}")
+        logger.major(
+            f"[{model_display_name}] Saved {len(training_data)} training examples to {training_file}"
+        )
 
         # Prepare validation data if provided
         validation_file = None
         if validation_samples:
             validation_data = []
             for sample in validation_samples:
-                messages = sample.history + [{"role": "assistant", "content": sample.output}]
+                messages = sample.history + [
+                    {"role": "assistant", "content": sample.output}
+                ]
                 validation_data.append({"messages": messages})
 
             validation_file = Path("data/tmp") / f"validation_data_{timestamp}.jsonl"
@@ -448,15 +502,21 @@ class APIModel(Policy):
                 with open(training_file, "rb") as f:
                     file_response = client.files.create(file=f, purpose="fine-tune")
 
-                logger.major(f"[{model_display_name}] Uploaded training file: {file_response.id}")
+                logger.major(
+                    f"[{model_display_name}] Uploaded training file: {file_response.id}"
+                )
 
                 # Upload validation file if provided
                 validation_file_id = None
                 if validation_file:
                     with open(validation_file, "rb") as f:
-                        val_file_response = client.files.create(file=f, purpose="fine-tune")
+                        val_file_response = client.files.create(
+                            file=f, purpose="fine-tune"
+                        )
                     validation_file_id = val_file_response.id
-                    logger.major(f"[{model_display_name}] Uploaded validation file: {validation_file_id}")
+                    logger.major(
+                        f"[{model_display_name}] Uploaded validation file: {validation_file_id}"
+                    )
 
                 # Create fine-tuning job with optional validation
                 job_params = {
@@ -470,7 +530,9 @@ class APIModel(Policy):
 
                 fine_tune_job = client.fine_tuning.jobs.create(**job_params)
 
-                logger.urgent(f"[{model_display_name}] Created SFT job: {fine_tune_job.id}")
+                logger.urgent(
+                    f"[{model_display_name}] Created SFT job: {fine_tune_job.id}"
+                )
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     # Sync with WandB if available
@@ -479,8 +541,12 @@ class APIModel(Policy):
                             from wandb.integration.openai.fine_tuning import WandbLogger
 
                             event_loop = asyncio.get_event_loop()
-                            event_loop.run_in_executor(executor, WandbLogger.sync, fine_tune_job.id)
-                            logger.urgent(f"[{model_display_name}] WandB syncing enabled for job: {fine_tune_job.id}")
+                            event_loop.run_in_executor(
+                                executor, WandbLogger.sync, fine_tune_job.id
+                            )
+                            logger.urgent(
+                                f"[{model_display_name}] WandB syncing enabled for job: {fine_tune_job.id}"
+                            )
                         except Exception as e:
                             logger.urgent(f"Failed to sync with WandB: {e}")
 
@@ -499,7 +565,8 @@ class APIModel(Policy):
                                     # Get latest training metrics from events
                                     events = list(
                                         client.fine_tuning.jobs.list_events(
-                                            fine_tuning_job_id=fine_tune_job.id, limit=10
+                                            fine_tuning_job_id=fine_tune_job.id,
+                                            limit=10,
                                         )
                                     )
                                     for event in events:
@@ -519,7 +586,9 @@ class APIModel(Policy):
                         if job_status.status == "succeeded":
                             break
                         elif job_status.status == "failed":
-                            raise RuntimeError(f"Fine-tuning failed: {job_status.error}")
+                            raise RuntimeError(
+                                f"Fine-tuning failed: {job_status.error}"
+                            )
 
                         await asyncio.sleep(30)
 
@@ -535,14 +604,18 @@ class APIModel(Policy):
                 # Upload training file
                 file_response = client.files.upload(file=training_file)
 
-                logger.major(f"[{model_display_name}] Uploaded training file: {file_response.id}")
+                logger.major(
+                    f"[{model_display_name}] Uploaded training file: {file_response.id}"
+                )
 
                 # Upload validation file if provided
                 validation_file_id = None
                 if validation_file:
                     val_file_response = client.files.upload(file=validation_file)
                     validation_file_id = val_file_response.id
-                    logger.major(f"[{model_display_name}] Uploaded validation file: {validation_file_id}")
+                    logger.major(
+                        f"[{model_display_name}] Uploaded validation file: {validation_file_id}"
+                    )
 
                 # Create fine-tuning job with optional validation
                 job_params = {
@@ -558,7 +631,9 @@ class APIModel(Policy):
 
                 fine_tune_job = client.fine_tuning.create(**job_params)
 
-                logger.major(f"[{model_display_name}] Created fine-tuning job: {fine_tune_job.id}")
+                logger.major(
+                    f"[{model_display_name}] Created fine-tuning job: {fine_tune_job.id}"
+                )
 
                 # Wait for fine-tuning to complete with status updates
                 status_counter = 0
@@ -570,10 +645,15 @@ class APIModel(Policy):
                         status_msg = f"[{model_display_name}] Fine-tuning status: {job_status.status}"
 
                         # Add metrics if available (Together AI may have different attribute names)
-                        if hasattr(job_status, "training_metrics") and job_status.training_metrics:
+                        if (
+                            hasattr(job_status, "training_metrics")
+                            and job_status.training_metrics
+                        ):
                             metrics = job_status.training_metrics
                             if "train_loss" in metrics:
-                                status_msg += f" | Train Loss: {metrics['train_loss']:.4f}"
+                                status_msg += (
+                                    f" | Train Loss: {metrics['train_loss']:.4f}"
+                                )
                             if "eval_loss" in metrics:
                                 status_msg += f" | Val Loss: {metrics['eval_loss']:.4f}"
 
@@ -607,9 +687,13 @@ class APIModel(Policy):
 
             # Save updated metadata
             model_dir = Path("data/models") / temp_model.colloquial_name
-            dump_file(model_dir / "metadata.json", updated_metadata, indent=2, default=str)
+            dump_file(
+                model_dir / "metadata.json", updated_metadata, indent=2, default=str
+            )
 
-            logger.urgent(f"[{model_display_name}] Fine-tuning completed. Model: {fine_tuned_model_name}")
+            logger.urgent(
+                f"[{model_display_name}] Fine-tuning completed. Model: {fine_tuned_model_name}"
+            )
 
             return temp_model
 
@@ -658,12 +742,18 @@ class APIModel(Policy):
 
                 use_wandb = True
             except ImportError:
-                logger.major("WandB OpenAI integration not found. Install with: pip install wandb")
+                logger.major(
+                    "WandB OpenAI integration not found. Install with: pip install wandb"
+                )
                 use_wandb = False
 
         # Create a deep copy early to get the colloquial_name for logging
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
-        temp_model = self.deep_copy(suffix_type="rl", suffix_data=samples, metadata=metadata)
+        timestamp = (
+            datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        )
+        temp_model = self.deep_copy(
+            suffix_type="rl", suffix_data=samples, metadata=metadata
+        )
         model_display_name = (
             temp_model.colloquial_name[:30] + "..."
             if len(temp_model.colloquial_name) > 30
@@ -677,7 +767,9 @@ class APIModel(Policy):
             return {
                 **(problem.aux_info or {}),
                 **dataclasses.asdict(problem),
-                "messages": [{"role": "user", "content": problem.question}],  # User message only
+                "messages": [
+                    {"role": "user", "content": problem.question}
+                ],  # User message only
             }
 
         training_data = []
@@ -692,7 +784,9 @@ class APIModel(Policy):
             for item in training_data:
                 f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
-        logger.major(f"[{model_display_name}] Saved {len(training_data)} RL training examples to {training_file}")
+        logger.major(
+            f"[{model_display_name}] Saved {len(training_data)} RL training examples to {training_file}"
+        )
 
         # Prepare validation data if provided
         validation_file = None
@@ -727,11 +821,15 @@ class APIModel(Policy):
         elif isinstance(grader, (dict, Callable)):
             grader_instance = create_grader_from_spec(grader)
         else:
-            raise ValueError(f"Invalid grader type: {type(grader)}. Must be a Grader instance, dict, or callable.")
+            raise ValueError(
+                f"Invalid grader type: {type(grader)}. Must be a Grader instance, dict, or callable."
+            )
 
         # Get OpenAI spec from the grader
         grader_spec = grader_instance.to_openai_spec()
-        logger.major(f"[{model_display_name}] Using grader: {grader_spec.get('type', 'unknown')} type")
+        logger.major(
+            f"[{model_display_name}] Using grader: {grader_spec.get('type', 'unknown')} type"
+        )
 
         try:
             from openai import OpenAI
@@ -742,7 +840,9 @@ class APIModel(Policy):
             with open(training_file, "rb") as f:
                 file_response = client.files.create(file=f, purpose="fine-tune")
 
-            logger.major(f"[{model_display_name}] Uploaded RL training file: {file_response.id}")
+            logger.major(
+                f"[{model_display_name}] Uploaded RL training file: {file_response.id}"
+            )
 
             # Upload validation file if provided
             validation_file_id = None
@@ -750,7 +850,9 @@ class APIModel(Policy):
                 with open(validation_file, "rb") as f:
                     val_file_response = client.files.create(file=f, purpose="fine-tune")
                 validation_file_id = val_file_response.id
-                logger.major(f"[{model_display_name}] Uploaded RL validation file: {validation_file_id}")
+                logger.major(
+                    f"[{model_display_name}] Uploaded RL validation file: {validation_file_id}"
+                )
 
             # Create RL fine-tuning job with grader
             # According to OpenAI docs, grader goes in method.reinforcement.grader
@@ -773,11 +875,15 @@ class APIModel(Policy):
             if validation_file_id:
                 job_params["validation_file"] = validation_file_id
 
-            logger.major(f"[{model_display_name}] Creating RL training job with {grader_spec['type']} grader")
+            logger.major(
+                f"[{model_display_name}] Creating RL training job with {grader_spec['type']} grader"
+            )
 
             fine_tune_job = client.fine_tuning.jobs.create(**job_params)
 
-            logger.urgent(f"[{model_display_name}] Created RL training job: {fine_tune_job.id}")
+            logger.urgent(
+                f"[{model_display_name}] Created RL training job: {fine_tune_job.id}"
+            )
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 # Sync with WandB if available
@@ -786,8 +892,12 @@ class APIModel(Policy):
                         from wandb.integration.openai.fine_tuning import WandbLogger
 
                         event_loop = asyncio.get_event_loop()
-                        event_loop.run_in_executor(executor, WandbLogger.sync, fine_tune_job.id)
-                        logger.urgent(f"[{model_display_name}] WandB syncing enabled for RL job: {fine_tune_job.id}")
+                        event_loop.run_in_executor(
+                            executor, WandbLogger.sync, fine_tune_job.id
+                        )
+                        logger.urgent(
+                            f"[{model_display_name}] WandB syncing enabled for RL job: {fine_tune_job.id}"
+                        )
                     except Exception as e:
                         logger.urgent(f"Failed to sync with WandB: {e}")
 
@@ -805,7 +915,9 @@ class APIModel(Policy):
                             try:
                                 # Get latest training metrics from events
                                 events = list(
-                                    client.fine_tuning.jobs.list_events(fine_tuning_job_id=fine_tune_job.id, limit=10)
+                                    client.fine_tuning.jobs.list_events(
+                                        fine_tuning_job_id=fine_tune_job.id, limit=10
+                                    )
                                 )
                                 for event in events:
                                     if hasattr(event, "data") and event.data:
@@ -851,9 +963,13 @@ class APIModel(Policy):
 
             # Save updated metadata
             model_dir = Path("data/models") / temp_model.colloquial_name
-            dump_file(model_dir / "metadata.json", updated_metadata, indent=2, default=str)
+            dump_file(
+                model_dir / "metadata.json", updated_metadata, indent=2, default=str
+            )
 
-            logger.urgent(f"[{model_display_name}] RL training completed. Model: {fine_tuned_model_name}")
+            logger.urgent(
+                f"[{model_display_name}] RL training completed. Model: {fine_tuned_model_name}"
+            )
 
             return temp_model
 

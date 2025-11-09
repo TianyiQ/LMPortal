@@ -64,10 +64,16 @@ class PythonBrierGrader(PythonGrader):
                         for msg in item["messages"]:
                             content = msg.get("content", "")
                             # Look for patterns indicating the correct answer
-                            if "correct answer is 0" in content.lower() or "answer: 0" in content.lower():
+                            if (
+                                "correct answer is 0" in content.lower()
+                                or "answer: 0" in content.lower()
+                            ):
                                 correct_option = 0
                                 break
-                            elif "correct answer is 1" in content.lower() or "answer: 1" in content.lower():
+                            elif (
+                                "correct answer is 1" in content.lower()
+                                or "answer: 1" in content.lower()
+                            ):
                                 correct_option = 1
                                 break
 
@@ -178,7 +184,9 @@ class PythonBrierGrader(PythonGrader):
             return False
         return True
 
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample by extracting belief and calculating Brier score.
         For local execution during LocalModel training.
@@ -191,7 +199,11 @@ class PythonBrierGrader(PythonGrader):
         sample_dict = {"output_text": sample.output}
 
         # Prepare item dict with problem information
-        item_dict = {**(sample.aux_info or {}), **dataclasses.asdict(sample), **(item or {})}
+        item_dict = {
+            **(sample.aux_info or {}),
+            **dataclasses.asdict(sample),
+            **(item or {}),
+        }
 
         # Call the grader function
         return self.grading_function(sample_dict, item_dict)

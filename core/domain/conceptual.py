@@ -46,7 +46,9 @@ class Conceptual(ProblemDomain):
 
         self.make_questions_splits(self.train_size)
 
-    def preprocess_samples(self, samples: list[OpenEndedProblem]) -> list[OpenEndedProblem]:
+    def preprocess_samples(
+        self, samples: list[OpenEndedProblem]
+    ) -> list[OpenEndedProblem]:
         """Preprocess the samples before they are put into the queue. Sample count can change at this stage."""
         # No preprocessing needed for conceptual questions - they are already open-ended
         return samples

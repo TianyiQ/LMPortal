@@ -95,9 +95,17 @@ def scatter_with_outliers_and_ci(
 
     x_log_scale = x_scale == "log"
     y_log_scale = y_scale == "log"
-    if x_scale == "auto" and (np.mean(x) > 2 * np.median(x) or np.max(x) > 6 * np.median(x)) and np.min(x) > 0:
+    if (
+        x_scale == "auto"
+        and (np.mean(x) > 2 * np.median(x) or np.max(x) > 6 * np.median(x))
+        and np.min(x) > 0
+    ):
         x_log_scale = True
-    if y_scale == "auto" and (np.mean(y) > 2 * np.median(y) or np.max(y) > 6 * np.median(y)) and np.min(y) > 0:
+    if (
+        y_scale == "auto"
+        and (np.mean(y) > 2 * np.median(y) or np.max(y) > 6 * np.median(y))
+        and np.min(y) > 0
+    ):
         y_log_scale = True
 
     if int(os.getenv("DEBUG", "0")):
@@ -110,7 +118,8 @@ def scatter_with_outliers_and_ci(
     group_ids = np.array(group_ids)
     group_color_candidates = plt.get_cmap("tab10").colors
     group_colors = {
-        group_id: group_color_candidates[i % len(group_color_candidates)] for i, group_id in enumerate(unique_group_ids)
+        group_id: group_color_candidates[i % len(group_color_candidates)]
+        for i, group_id in enumerate(unique_group_ids)
     }
 
     plt.clf()
@@ -122,10 +131,14 @@ def scatter_with_outliers_and_ci(
     all_y = np.asarray(y, dtype=float)
     if x_ci_range:
         all_x_ci_range = np.asarray(x_ci_range, dtype=float).T
-        all_x_ci_range = np.abs(all_x_ci_range - all_x.reshape(1, -1))  # Convert from (lo, hi) to (x-lo, hi-x)
+        all_x_ci_range = np.abs(
+            all_x_ci_range - all_x.reshape(1, -1)
+        )  # Convert from (lo, hi) to (x-lo, hi-x)
     if y_ci_range:
         all_y_ci_range = np.asarray(y_ci_range, dtype=float).T
-        all_y_ci_range = np.abs(all_y_ci_range - all_y.reshape(1, -1))  # Convert from (lo, hi) to (x-lo, hi-x)
+        all_y_ci_range = np.abs(
+            all_y_ci_range - all_y.reshape(1, -1)
+        )  # Convert from (lo, hi) to (x-lo, hi-x)
 
     lines = [title] if title else []
 
@@ -135,14 +148,18 @@ def scatter_with_outliers_and_ci(
         y = all_y[group_mask]
         x_ci_range = all_x_ci_range[:, group_mask] if x_ci_range is not None else None
         y_ci_range = all_y_ci_range[:, group_mask] if y_ci_range is not None else None
-        inlier_color = group_colors[group_id] if len(unique_group_ids) > 1 else "#1f77b4"
+        inlier_color = (
+            group_colors[group_id] if len(unique_group_ids) > 1 else "#1f77b4"
+        )
         outlier_color = inlier_color if len(unique_group_ids) > 1 else "red"
         regression_color = inlier_color if len(unique_group_ids) > 1 else "red"
 
         n = len(x)
         if n != len(y) or n < 2:
             if int(os.getenv("DEBUG", "0")):
-                print(f"x and y must have same length and at least 2 points: {n} != {len(y)} or {n} < 2")
+                print(
+                    f"x and y must have same length and at least 2 points: {n} != {len(y)} or {n} < 2"
+                )
                 print(f"group_id: {group_id}")
                 print(f"x: {x}")
                 print(f"y: {y}")
@@ -225,7 +242,13 @@ def scatter_with_outliers_and_ci(
         min_val = float(min(x.min(), y.min()))
         max_val = float(max(x.max(), y.max()))
         if not supress_reference_line:
-            ax.plot([min_val, max_val], [min_val, max_val], "k--", alpha=0.5, label="Perfect Agreement")
+            ax.plot(
+                [min_val, max_val],
+                [min_val, max_val],
+                "k--",
+                alpha=0.5,
+                label="Perfect Agreement",
+            )
 
         # Plot outliers last so they are on top of all elements
         if is_out.any():
@@ -406,7 +429,9 @@ def logistic_coef_loss_ci(
     if not silent:
         print(f"\n--- Running {n_bootstrap} Bootstrap Iterations ---")
 
-    bootstrap_loss_ci = bootstrap_logistic_loss_ci(X, y, initial_params=sm_results.params)
+    bootstrap_loss_ci = bootstrap_logistic_loss_ci(
+        X, y, initial_params=sm_results.params
+    )
 
     # Coefficients Table
     if not silent:
@@ -424,7 +449,9 @@ def logistic_coef_loss_ci(
         print("\n--- Cross-Entropy Loss (Log Loss) ---")
         print(f"Point Estimate (Statsmodels): {sm_logloss:.4f}")
         if not np.any(np.isnan(bootstrap_loss_ci)):
-            print(f"Bootstrap 95% CI: ({bootstrap_loss_ci[0]:.4f}, {bootstrap_loss_ci[1]:.4f})")
+            print(
+                f"Bootstrap 95% CI: ({bootstrap_loss_ci[0]:.4f}, {bootstrap_loss_ci[1]:.4f})"
+            )
         else:
             print("Bootstrap CI for Log Loss could not be computed.")
 

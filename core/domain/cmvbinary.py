@@ -27,7 +27,9 @@ class CMVBinary(ProblemDomain):
         # Access cmv data
         # self.dataset_path = os.path.join("data", "questions", dataset_file)
         self.dataset_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../..", "data", "questions", dataset_file)
+            os.path.join(
+                os.path.dirname(__file__), "../..", "data", "questions", dataset_file
+            )
         )
         self.dataset_content = load_file(self.dataset_path)
 

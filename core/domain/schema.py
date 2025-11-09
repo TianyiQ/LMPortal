@@ -28,15 +28,37 @@ class BinaryProblem:
     )  # Empty by default, can be used to store additional information such as date, topic, etc.
 
     """
-    Converting a collection of problems (like forecasting) into strict Binary problems and eanbles operations such as shuffing and evaluation. 
-    
-    :param correct_option: ground truth, None if absent. 
+    Converting a collection of problems (like forecasting) into strict Binary problems and eanbles operations such as shuffing and evaluation.
+
+    :param correct_option: ground truth, None if absent.
     :type correct_option: Literal[0, 1] | None
 
-    :param: aux_info 
+    :param: aux_info
     """
 
-    def shuffle_options(self, rng: Optional[np.random.Generator] = None) -> BinaryProblem:
+    def to_sample(self) -> "Sample":  # noqa: F821
+        """
+        Convert this problem to a Sample that can be used for inference.
+
+        :return: Sample with the question as user message
+        :rtype: Sample
+        """
+        from core.policy.schema import Sample
+
+        # Create a simple history with the question
+        history = [{"role": "user", "content": self.question}]
+
+        # We need to return a Sample instance, which is abstract
+        # For now, we create a minimal Sample-like object with just history
+        # The actual Sample will be completed during inference
+        class _IncompleteSample(Sample):
+            pass
+
+        return _IncompleteSample(history=history)
+
+    def shuffle_options(
+        self, rng: Optional[np.random.Generator] = None
+    ) -> BinaryProblem:
         """Shuffle the options of the problem to avoid the position bias.
 
         Uses the provided RNG when available for determinism; otherwise falls back to NumPy's global generator.
@@ -66,7 +88,9 @@ class BinaryProblem:
         :return: Accuracy in [0,1], and its 95% CI (lower bound, upper bound).
         :rtype: tuple[float, tuple[float, float]]
         """
-        accu = sum(p.correct_option == r for p, r in zip(problems, responses, strict=False)) / len(problems)
+        accu = sum(
+            p.correct_option == r for p, r in zip(problems, responses, strict=False)
+        ) / len(problems)
         se = np.sqrt(accu * (1 - accu) / len(problems))
         return accu, (accu - 1.96 * se, accu + 1.96 * se)
 
@@ -120,6 +144,26 @@ class OpenEndedProblem:
     question: str
     aux_info: dict[str, Any] = dataclasses.field(default_factory=dict)
 
+    def to_sample(self) -> "Sample":  # noqa: F821
+        """
+        Convert this problem to a Sample that can be used for inference.
+
+        :return: Sample with the question as user message
+        :rtype: Sample
+        """
+        from core.policy.schema import Sample
+
+        # Create a simple history with the question
+        history = [{"role": "user", "content": self.question}]
+
+        # We need to return a Sample instance, which is abstract
+        # For now, we create a minimal Sample-like object with just history
+        # The actual Sample will be completed during inference
+        class _IncompleteSample(Sample):
+            pass
+
+        return _IncompleteSample(history=history)
+
 
 # Type alias: Problem = BinaryProblem | OpenEndedProblem | MultipleChoiceProblem (upcoming) | ...
 Problem = Union[BinaryProblem, OpenEndedProblem]
@@ -163,8 +207,12 @@ class ProblemDomain(abc.ABC):
             "train": self.questions_all[:train_samples],
             "test": self.questions_all[train_samples:],
         }
-        logger.major(f"{self.__class__.__name__} training set size: {len(self.questions_splits['train'])}")
-        logger.major(f"{self.__class__.__name__} test set size: {len(self.questions_splits['test'])}")
+        logger.major(
+            f"{self.__class__.__name__} training set size: {len(self.questions_splits['train'])}"
+        )
+        logger.major(
+            f"{self.__class__.__name__} test set size: {len(self.questions_splits['test'])}"
+        )
 
     def postprocess_sample(self, sample: Problem) -> Problem:
         """Postprocess a sample after it is sampled. Sample count must not change at this stage. Each subclass should implement this method to ensure the sample is in the correct format."""
@@ -174,7 +222,9 @@ class ProblemDomain(abc.ABC):
         """Preprocess the samples before they are put into the queue. Sample count can change at this stage. Each subclass should implement this method to ensure the sample is in the correct format."""
         return samples
 
-    def sample_problems(self, n: int = 1, split: Optional[Literal["train", "test"]] = None) -> list[Problem]:
+    def sample_problems(
+        self, n: int = 1, split: Optional[Literal["train", "test"]] = None
+    ) -> list[Problem]:
         """Sample `n` problems from the problem set. Sampling is without replacement, even across calls.
 
         :param n: the number of problems to sample, defaults to 1
@@ -192,4 +242,7 @@ class ProblemDomain(abc.ABC):
             self._rng.shuffle(to_add)
             self.sample_queue[split].extend(self.preprocess_samples(to_add))
 
-        return [self.postprocess_sample(self.sample_queue[split].popleft()) for _ in range(n)]
+        return [
+            self.postprocess_sample(self.sample_queue[split].popleft())
+            for _ in range(n)
+        ]

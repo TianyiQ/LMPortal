@@ -83,7 +83,9 @@ class ModelGrader(Grader):
             "range": list(self.score_range),
         }
 
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample using the model (async version).
 
@@ -108,7 +110,8 @@ class ModelGrader(Grader):
         # This mirrors what PythonGrader does
         sample_dict = {
             "output_text": sample.output,
-            "messages": sample.history + [{"role": "assistant", "content": sample.output}],
+            "messages": sample.history
+            + [{"role": "assistant", "content": sample.output}],
         }
 
         # Add any aux_info to the sample dict
@@ -176,7 +179,7 @@ class ModelGrader(Grader):
         # Get grading from the model using async method
         try:
             # Use the async version of infer to avoid event loop conflicts
-            response = await grader_policy.infer_single_async(
+            response = await grader_policy.infer_from_history_async(
                 history=messages,
                 temperature=self.sampling_params.get("temperature", 0.0),
             )
@@ -255,7 +258,10 @@ class ModelGrader(Grader):
 
             # Check for empty boxed
             if not boxed_content:
-                raise ValueError(f"Empty \\boxed{{}} found. Content must contain a number. " f"Response: {response}")
+                raise ValueError(
+                    f"Empty \\boxed{{}} found. Content must contain a number. "
+                    f"Response: {response}"
+                )
 
             try:
                 # Try to parse as float
@@ -272,7 +278,8 @@ class ModelGrader(Grader):
                 return score
             except ValueError as e:
                 raise ValueError(
-                    f"Could not parse number from \\boxed{{{boxed_content}}}. " f"Response: {response}"
+                    f"Could not parse number from \\boxed{{{boxed_content}}}. "
+                    f"Response: {response}"
                 ) from e
 
         # Fallback: Try to find a number in the response (for backward compatibility)
@@ -301,5 +308,6 @@ class ModelGrader(Grader):
 
         # If no number found, raise an error
         raise ValueError(
-            f"Could not parse score from response. Expected \\boxed{{score}} format. " f"Response: {response}"
+            f"Could not parse score from response. Expected \\boxed{{score}} format. "
+            f"Response: {response}"
         )

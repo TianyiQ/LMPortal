@@ -50,7 +50,9 @@ class RLConfig(TrainingConfig):
         if os.getenv("RL_BATCH_SIZE"):
             config.batch_size = int(os.getenv("RL_BATCH_SIZE"))
         if os.getenv("RL_GRADIENT_ACCUMULATION_STEPS"):
-            config.gradient_accumulation_steps = int(os.getenv("RL_GRADIENT_ACCUMULATION_STEPS"))
+            config.gradient_accumulation_steps = int(
+                os.getenv("RL_GRADIENT_ACCUMULATION_STEPS")
+            )
         if os.getenv("RL_WARMUP_RATIO"):
             config.warmup_ratio = float(os.getenv("RL_WARMUP_RATIO"))
         if os.getenv("RL_KL_COEF"):
@@ -143,7 +145,9 @@ class RLTrainer(Trainer):
         logger.major(f"Starting RL training with {len(problem_list)} problems")
 
         for problem in problem_list:
-            assert grader.validate_problem(problem), f"Problem {problem} does not satisfy desiderata for grader"
+            assert grader.validate_problem(
+                problem
+            ), f"Problem {problem} does not satisfy desiderata for grader"
 
         # Handle validation based on strategy
         validation_samples = None
@@ -166,7 +170,9 @@ class RLTrainer(Trainer):
                 validation_samples = []
 
         else:
-            raise ValueError(f"Invalid validation strategy: {self.config.validation_strategy}")
+            raise ValueError(
+                f"Invalid validation strategy: {self.config.validation_strategy}"
+            )
 
         logger.major(
             f"Split {len(problem_list)} problems into {len(training_problems)} training and {len(validation_samples)} validation for RL"
@@ -194,11 +200,15 @@ class RLTrainer(Trainer):
 
         # Transform the problems using the grader's transform_dataset method
         # This allows graders like PythonBrierGrader to add format instructions
-        logger.major(f"Transforming {len(training_problems)} training problems using grader")
+        logger.major(
+            f"Transforming {len(training_problems)} training problems using grader"
+        )
         training_problems = grader.transform_dataset(training_problems)
 
         if validation_samples:
-            logger.major(f"Transforming {len(validation_samples)} validation problems using grader")
+            logger.major(
+                f"Transforming {len(validation_samples)} validation problems using grader"
+            )
             validation_samples = grader.transform_dataset(validation_samples)
 
         # Prepare metadata
@@ -217,11 +227,18 @@ class RLTrainer(Trainer):
         # Train the policy using RL
         logger.major(
             f"Starting RL training with {len(training_problems)} training problems"
-            + (f" and {len(validation_samples)} validation problems" if validation_samples else "")
+            + (
+                f" and {len(validation_samples)} validation problems"
+                if validation_samples
+                else ""
+            )
         )
 
         trained_policy = await policy.train_rl_async(
-            training_problems, grader=grader, validation_samples=validation_samples, metadata=metadata
+            training_problems,
+            grader=grader,
+            validation_samples=validation_samples,
+            metadata=metadata,
         )
 
         logger.major(f"RL training completed, trained policy: {trained_policy}")

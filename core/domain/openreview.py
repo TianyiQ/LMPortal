@@ -33,10 +33,14 @@ class OpenReview(ProblemDomain):
         """
         super().__init__()
         self.train_size = train_size
-        self.anonymize_authors = eval(os.getenv("ANONYMIZE_AUTHORS", str(anonymize_authors)))
+        self.anonymize_authors = eval(
+            os.getenv("ANONYMIZE_AUTHORS", str(anonymize_authors))
+        )
         self.hide_reviews = eval(os.getenv("HIDE_REVIEWS", str(hide_reviews)))
         self.hide_references = eval(os.getenv("HIDE_REFERENCES", str(hide_references)))
-        self.max_question_length = eval(os.getenv("MAX_QUESTION_LENGTH", str(max_question_length)))
+        self.max_question_length = eval(
+            os.getenv("MAX_QUESTION_LENGTH", str(max_question_length))
+        )
 
         # Access OpenReview dataset from HuggingFace
         # (data/tmp/openreview_sample_dummy.json is only an example; the actual dataset is much larger)
@@ -65,13 +69,23 @@ class OpenReview(ProblemDomain):
                 correct_option=(0 if q["decision"] else 1),
                 aux_info=q | {"domain_name": "openreview"},
             )
-            for q_id, q in enumerate(tqdm(self.dataset_content, desc="Loading OpenReview"))
-            if ("decision" in q and isinstance(q["decision"], bool) and OpenReview.__is_venue_trusted(q["venue"]))
+            for q_id, q in enumerate(
+                tqdm(self.dataset_content, desc="Loading OpenReview")
+            )
+            if (
+                "decision" in q
+                and isinstance(q["decision"], bool)
+                and OpenReview.__is_venue_trusted(q["venue"])
+            )
         ]
         self.questions_all.sort(key=lambda x: x.id)  # Sort for deterministic ordering
         pre_filtering_count = len(self.questions_all)
-        self.questions_all = [q for q in self.questions_all if len(q.question) <= self.max_question_length]
-        print(f"Removed {pre_filtering_count - len(self.questions_all)} overly long questions.")
+        self.questions_all = [
+            q for q in self.questions_all if len(q.question) <= self.max_question_length
+        ]
+        print(
+            f"Removed {pre_filtering_count - len(self.questions_all)} overly long questions."
+        )
 
         self.make_questions_splits(self.train_size)
 

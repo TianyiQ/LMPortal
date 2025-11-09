@@ -52,7 +52,9 @@ except ImportError:
 try:
     import ray
 except ImportError as e:
-    raise ImportError("Ray is required for LocalModel. Install with: pip install ray") from e
+    raise ImportError(
+        "Ray is required for LocalModel. Install with: pip install ray"
+    ) from e
 
 try:
     from peft import LoraConfig
@@ -64,7 +66,9 @@ try:
     from accelerate import Accelerator
     from accelerate.utils import set_seed
 except ImportError:
-    warnings.warn("Accelerate not available. Multi-GPU training will not work optimally.")
+    warnings.warn(
+        "Accelerate not available. Multi-GPU training will not work optimally."
+    )
     Accelerator = None
     set_seed = None
 
@@ -100,7 +104,13 @@ class LocalModelWorker:
         self.use_api_mode = None
         self.session = None
 
-    def initialize(self, backend_port: int, temperature: float, max_tokens: int, use_api_mode: bool = False):
+    def initialize(
+        self,
+        backend_port: int,
+        temperature: float,
+        max_tokens: int,
+        use_api_mode: bool = False,
+    ):
         """Initialize connection to existing SGLang backend.
 
         Args:
@@ -124,16 +134,27 @@ class LocalModelWorker:
             test_url = f"http://localhost:{backend_port}/health"
             response = self.session.get(test_url)
             if response.status_code != 200:
-                raise RuntimeError(f"Backend health check failed: {response.status_code}")
-            print(f"Worker connected to backend at port {backend_port}, health check status: {response.status_code}")
+                raise RuntimeError(
+                    f"Backend health check failed: {response.status_code}"
+                )
+            print(
+                f"Worker connected to backend at port {backend_port}, health check status: {response.status_code}"
+            )
         else:
             # Original SGLang function mode
             # Connect to existing backend
-            sgl.set_default_backend(sgl.RuntimeEndpoint(f"http://localhost:{backend_port}"))
+            sgl.set_default_backend(
+                sgl.RuntimeEndpoint(f"http://localhost:{backend_port}")
+            )
 
             # Set up SGLang inference function
             @sgl.function
-            def inference_function(s, conversation: list[dict[str, str]], temperature: float, max_tokens: int):
+            def inference_function(
+                s,
+                conversation: list[dict[str, str]],
+                temperature: float,
+                max_tokens: int,
+            ):
                 for turn in conversation:
                     if turn["role"] == "system":
                         s += sgl.system(turn["content"])
@@ -145,23 +166,35 @@ class LocalModelWorker:
                         raise ValueError(f"Unknown role: {turn['role']}")
 
                 s += sgl.assistant_begin()
-                s += sgl.gen("response", max_tokens=max_tokens, temperature=temperature, return_logprob=False)
+                s += sgl.gen(
+                    "response",
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    return_logprob=False,
+                )
 
             # Set up SGLang logprob function
             @sgl.function
             def logprob_function(s, conversation: list[dict[str, str]]):
                 # Handle None case during SGLang tracing
                 if conversation is None:
-                    conversation = [{"role": "user", "content": "dummy"}, {"role": "assistant", "content": "dummy"}]
+                    conversation = [
+                        {"role": "user", "content": "dummy"},
+                        {"role": "assistant", "content": "dummy"},
+                    ]
 
                 # Handle different conversation formats
                 if isinstance(conversation, str):
                     conversation = [{"role": "assistant", "content": conversation}]
                 elif not isinstance(conversation, list):
-                    if hasattr(conversation, "__iter__") and not isinstance(conversation, (str, dict)):
+                    if hasattr(conversation, "__iter__") and not isinstance(
+                        conversation, (str, dict)
+                    ):
                         conversation = list(conversation)
                     else:
-                        raise ValueError(f"Unexpected conversation type: {type(conversation)}")
+                        raise ValueError(
+                            f"Unexpected conversation type: {type(conversation)}"
+                        )
 
                 for turn in conversation:
                     if isinstance(turn, str):
@@ -179,7 +212,11 @@ class LocalModelWorker:
                         raise ValueError(f"Unknown role: {turn['role']}")
 
                 s += sgl.gen(
-                    "logprobs", max_tokens=0, return_logprob=True, logprob_start_len=0, return_text_in_logprobs=True
+                    "logprobs",
+                    max_tokens=0,
+                    return_logprob=True,
+                    logprob_start_len=0,
+                    return_text_in_logprobs=True,
                 )
 
             self.inference_fn = inference_function
@@ -188,25 +225,36 @@ class LocalModelWorker:
         return f"Worker initialized in {'API' if use_api_mode else 'SGLang'} mode"
 
     def process_inference_chunk(
-        self, conversations: list[list[dict[str, str]]], temperature: float, max_tokens: int
+        self,
+        conversations: list[list[dict[str, str]]],
+        temperature: float,
+        max_tokens: int,
     ) -> list[str]:
         """Process a chunk of conversations for inference."""
         if self.use_api_mode:
             if self.session is None:
                 raise RuntimeError("Worker not properly initialized for API mode")
-            return self._process_inference_chunk_api(conversations, temperature, max_tokens)
+            return self._process_inference_chunk_api(
+                conversations, temperature, max_tokens
+            )
         else:
-            return self._process_inference_chunk_sglang(conversations, temperature, max_tokens)
+            return self._process_inference_chunk_sglang(
+                conversations, temperature, max_tokens
+            )
 
     def _process_inference_chunk_sglang(
-        self, conversations: list[list[dict[str, str]]], temperature: float, max_tokens: int
+        self,
+        conversations: list[list[dict[str, str]]],
+        temperature: float,
+        max_tokens: int,
     ) -> list[str]:
         """Process using SGLang functions (original implementation)."""
         if self.inference_fn is None:
             raise RuntimeError("Worker not initialized")
 
         batch_inputs = [
-            {"conversation": conv, "temperature": temperature, "max_tokens": max_tokens} for conv in conversations
+            {"conversation": conv, "temperature": temperature, "max_tokens": max_tokens}
+            for conv in conversations
         ]
 
         # Use smaller progress bar threshold for chunks
@@ -222,7 +270,10 @@ class LocalModelWorker:
         return responses
 
     def _process_inference_chunk_api(
-        self, conversations: list[list[dict[str, str]]], temperature: float, max_tokens: int
+        self,
+        conversations: list[list[dict[str, str]]],
+        temperature: float,
+        max_tokens: int,
     ) -> list[str]:
         """Process using direct API calls to SGLang backend - plain sequential execution."""
         results = []
@@ -253,7 +304,9 @@ class LocalModelWorker:
 
         return results
 
-    def process_logprob_chunk(self, conversations: list[list[dict[str, str]]], return_summed: bool) -> list:
+    def process_logprob_chunk(
+        self, conversations: list[list[dict[str, str]]], return_summed: bool
+    ) -> list:
         """Process a chunk of conversations for logprob calculation."""
         if self.use_api_mode:
             if self.session is None:
@@ -262,7 +315,9 @@ class LocalModelWorker:
         else:
             return self._process_logprob_chunk_sglang(conversations, return_summed)
 
-    def _process_logprob_chunk_sglang(self, conversations: list[list[dict[str, str]]], return_summed: bool) -> list:
+    def _process_logprob_chunk_sglang(
+        self, conversations: list[list[dict[str, str]]], return_summed: bool
+    ) -> list:
         """Process logprobs using SGLang functions (original implementation)."""
         if self.logprob_fn is None:
             raise RuntimeError("Worker not initialized")
@@ -311,7 +366,9 @@ class LocalModelWorker:
                             if token_text is not None:
                                 processed_logprobs.append((logprob_value, token_text))
                             else:
-                                processed_logprobs.append((logprob_value, f"<token_{i}>"))
+                                processed_logprobs.append(
+                                    (logprob_value, f"<token_{i}>")
+                                )
 
                 if return_summed:
                     all_results.append(float(sum(processed_logprobs)))
@@ -322,7 +379,9 @@ class LocalModelWorker:
 
         return all_results
 
-    def _process_logprob_chunk_api(self, conversations: list[list[dict[str, str]]], return_summed: bool) -> list:
+    def _process_logprob_chunk_api(
+        self, conversations: list[list[dict[str, str]]], return_summed: bool
+    ) -> list:
         """Process logprobs using direct API calls to SGLang backend - plain sequential execution."""
         results = []
 
@@ -361,7 +420,10 @@ class LocalModelWorker:
                     result = response.json()
 
                     # Extract logprobs from the native API response
-                    if "meta_info" in result and "input_token_logprobs" in result["meta_info"]:
+                    if (
+                        "meta_info" in result
+                        and "input_token_logprobs" in result["meta_info"]
+                    ):
                         token_logprobs = result["meta_info"]["input_token_logprobs"]
                         token_texts = result["meta_info"].get("input_tokens", [])
 
@@ -384,18 +446,30 @@ class LocalModelWorker:
                                 else:
                                     # Debug output for unexpected format
                                     if int(os.getenv("DEBUG", "0")) >= 2:
-                                        print(f"Unexpected logprob format at index {i}: type={type(lp)}, value={lp}")
+                                        print(
+                                            f"Unexpected logprob format at index {i}: type={type(lp)}, value={lp}"
+                                        )
                                     continue
 
                                 if logprob_value is not None:
                                     if return_summed:
                                         processed_logprobs.append(logprob_value)
                                     else:
-                                        token_text = token_texts[i] if i < len(token_texts) else f"<token_{i}>"
-                                        processed_logprobs.append((logprob_value, token_text))
+                                        token_text = (
+                                            token_texts[i]
+                                            if i < len(token_texts)
+                                            else f"<token_{i}>"
+                                        )
+                                        processed_logprobs.append(
+                                            (logprob_value, token_text)
+                                        )
 
                         if return_summed:
-                            results.append(float(sum(processed_logprobs)) if processed_logprobs else 0.0)
+                            results.append(
+                                float(sum(processed_logprobs))
+                                if processed_logprobs
+                                else 0.0
+                            )
                         else:
                             results.append(processed_logprobs)
                     else:
@@ -405,7 +479,9 @@ class LocalModelWorker:
                 else:
                     print(f"API error (status {response.status_code}): {response.text}")
                     if int(os.getenv("DEBUG", "0")) >= 2:
-                        raise ValueError(f"API error (status {response.status_code}): {response.text}")
+                        raise ValueError(
+                            f"API error (status {response.status_code}): {response.text}"
+                        )
                     results.append(0.0 if return_summed else [])
             except Exception as e:
                 print(f"Logprob request failed: {e}")
@@ -459,7 +535,9 @@ class LocalModel(Policy):
             username: Username for GPU process management
         """
         if sgl is None:
-            raise ImportError("sglang is required for LocalModel. Install with: pip install sglang[all]")
+            raise ImportError(
+                "sglang is required for LocalModel. Install with: pip install sglang[all]"
+            )
 
         super().__init__(
             colloquial_name or LocalModel._extract_model_name(model_name),
@@ -474,7 +552,9 @@ class LocalModel(Policy):
         self.response_only = response_only
         self.gpu_ids = gpu_ids or list(range(torch.cuda.device_count()))
         self.system_prompt = system_prompt
-        self.disable_reasoning = int(os.getenv("DISABLE_REASONING", "0")) == 1 or disable_reasoning
+        self.disable_reasoning = (
+            int(os.getenv("DISABLE_REASONING", "0")) == 1 or disable_reasoning
+        )
 
         self.backend_process: subprocess.Popen | None = None
         self.backend_started = False
@@ -488,7 +568,9 @@ class LocalModel(Policy):
         # Ray worker pool
         self._ray_workers = None
         self._num_workers = min(os.cpu_count(), int(os.getenv("MAX_WORKERS", "256")))
-        self._use_api_mode = int(os.getenv("LOCALMODEL_USE_API", "0")) == 1  # Use API mode if env var is set
+        self._use_api_mode = (
+            int(os.getenv("LOCALMODEL_USE_API", "0")) == 1
+        )  # Use API mode if env var is set
         self._worker_last_used = {}  # Track when each worker was last used for LRU
 
     @staticmethod
@@ -528,14 +610,22 @@ class LocalModel(Policy):
                 - use_accelerate: Whether to use Accelerate
                 - distributed_type: Type of distributed training
         """
-        config = {"num_gpus": 1, "deepspeed_config": None, "use_accelerate": False, "distributed_type": "NO"}
+        config = {
+            "num_gpus": 1,
+            "deepspeed_config": None,
+            "use_accelerate": False,
+            "distributed_type": "NO",
+        }
 
         # Check for available GPUs
         if torch.cuda.is_available():
             config["num_gpus"] = torch.cuda.device_count()
 
         # Check for DeepSpeed configuration
-        deepspeed_configs = ["data/config/deepspeed_zero2.json", "data/config/deepspeed_zero3.json"]
+        deepspeed_configs = [
+            "data/config/deepspeed_zero2.json",
+            "data/config/deepspeed_zero3.json",
+        ]
 
         for ds_config in deepspeed_configs:
             if Path(ds_config).exists():
@@ -634,7 +724,9 @@ class LocalModel(Policy):
                 for process in processes:
                     if process.username.lower() == self.username.lower():
                         try:
-                            print(f"Killing GPU process {process.pid}: {process.cmdline}")
+                            print(
+                                f"Killing GPU process {process.pid}: {process.cmdline}"
+                            )
                             os.kill(process.pid, signal.SIGTERM)
                             time.sleep(0.5)
                             os.kill(process.pid, signal.SIGKILL)
@@ -651,7 +743,9 @@ class LocalModel(Policy):
         """Start the SGLang backend server."""
         silent = os.environ.get("DEBUG", "0") == "0"
         if int(os.getenv("DEBUG", "0")) >= 2:
-            print(f"Starting backend for {self.model_name} with purpose {purpose} in silent mode: {silent}")
+            print(
+                f"Starting backend for {self.model_name} with purpose {purpose} in silent mode: {silent}"
+            )
 
         if os.environ.get("HALT_BEFORE_LOAD", "0") == "1":
             print("Halted before loading backend.")
@@ -675,7 +769,11 @@ class LocalModel(Policy):
             else (
                 2
                 if model_size <= 30
-                else 4 if model_size <= 80 else 8 if model_size <= 160 else 16 if model_size <= 320 else 32
+                else (
+                    4
+                    if model_size <= 80
+                    else 8 if model_size <= 160 else 16 if model_size <= 320 else 32
+                )
             )
         )
 
@@ -686,12 +784,19 @@ class LocalModel(Policy):
             min_gpus_per_instance = (min_gpus_per_instance + 1) // 2
 
         if "select_devices" in globals():
-            if select_devices(min_count=0, max_count=self._gpu_count, min_free_memory="130GiB"):
-                print("GPU has 130GiB+ free memory per device, halving tensor parallelism")
+            if select_devices(
+                min_count=0, max_count=self._gpu_count, min_free_memory="130GiB"
+            ):
+                print(
+                    "GPU has 130GiB+ free memory per device, halving tensor parallelism"
+                )
                 min_gpus_per_instance = (min_gpus_per_instance + 1) // 2
 
         while self._gpu_count % min_gpus_per_instance != 0:
-            if self._gpu_count < min_gpus_per_instance and int(os.getenv("OVERRIDE_MIN_GPUS_PER_INSTANCE", "0")) == 0:
+            if (
+                self._gpu_count < min_gpus_per_instance
+                and int(os.getenv("OVERRIDE_MIN_GPUS_PER_INSTANCE", "0")) == 0
+            ):
                 raise ValueError(
                     f"Not enough GPUs ({self._gpu_count}) for model {self.model_name} with size {model_size}. Set OVERRIDE_MIN_GPUS_PER_INSTANCE=1 to override this check."
                 )
@@ -758,7 +863,12 @@ class LocalModel(Policy):
         if "CUDA_VISIBLE_DEVICES" not in env:
             env["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, self.gpu_ids))
         executable = os.environ.get("PY_EXEC", "python")
-        backend = subprocess.Popen(executable.split() + args, stdout=stdout_redirect, stderr=stderr_redirect, env=env)
+        backend = subprocess.Popen(
+            executable.split() + args,
+            stdout=stdout_redirect,
+            stderr=stderr_redirect,
+            env=env,
+        )
 
         return backend
 
@@ -768,8 +878,12 @@ class LocalModel(Policy):
             time.sleep(30)  # Wait 30 seconds between attempts
 
             try:
-                print(f"Attempting to connect to backend (attempt {attempt + 1}/{max_retries})...")
-                sgl.set_default_backend(sgl.RuntimeEndpoint(f"http://localhost:{self.port}"))
+                print(
+                    f"Attempting to connect to backend (attempt {attempt + 1}/{max_retries})..."
+                )
+                sgl.set_default_backend(
+                    sgl.RuntimeEndpoint(f"http://localhost:{self.port}")
+                )
 
                 # Test the connection with a simple request
                 print("Successfully connected to backend!")
@@ -787,7 +901,9 @@ class LocalModel(Policy):
         """Set up SGLang inference functions."""
 
         @sgl.function
-        def inference_function(s, conversation: list[dict[str, str]], temperature: float, max_tokens: int):
+        def inference_function(
+            s, conversation: list[dict[str, str]], temperature: float, max_tokens: int
+        ):
             for turn in conversation:
                 if turn["role"] == "system":
                     s += sgl.system(turn["content"])
@@ -799,7 +915,12 @@ class LocalModel(Policy):
                     raise ValueError(f"Unknown role: {turn['role']}")
 
             s += sgl.assistant_begin()
-            s += sgl.gen("response", max_tokens=max_tokens, temperature=temperature, return_logprob=False)
+            s += sgl.gen(
+                "response",
+                max_tokens=max_tokens,
+                temperature=temperature,
+                return_logprob=False,
+            )
 
         @sgl.function
         def logprob_function(s, conversation: list[dict[str, str]]):
@@ -841,7 +962,11 @@ class LocalModel(Policy):
                     raise ValueError(f"Unknown role: {turn['role']}")
 
             s += sgl.gen(
-                "logprobs", max_tokens=0, return_logprob=True, logprob_start_len=0, return_text_in_logprobs=True
+                "logprobs",
+                max_tokens=0,
+                return_logprob=True,
+                logprob_start_len=0,
+                return_text_in_logprobs=True,
             )
 
         @sgl.function
@@ -871,21 +996,29 @@ class LocalModel(Policy):
 
         # Initialize worker pool if not already done
         if self._ray_workers is None:
-            self._ray_workers = [LocalModelWorker.remote() for _ in range(self._num_workers)]
+            self._ray_workers = [
+                LocalModelWorker.remote() for _ in range(self._num_workers)
+            ]
 
             # Initialize all workers to connect to the existing backend
             init_tasks = [
-                worker.initialize.remote(self.port, self.temperature, self.max_tokens, self._use_api_mode)
+                worker.initialize.remote(
+                    self.port, self.temperature, self.max_tokens, self._use_api_mode
+                )
                 for worker in self._ray_workers
             ]
-            init_results = await asyncio.gather(*[asyncio.to_thread(ray.get, task) for task in init_tasks])
+            init_results = await asyncio.gather(
+                *[asyncio.to_thread(ray.get, task) for task in init_tasks]
+            )
 
             if int(os.getenv("DEBUG", "0")):
                 print(
                     f"Initialized {self._num_workers} Ray workers in {'API' if self._use_api_mode else 'SGLang'} mode: {init_results}"
                 )
 
-    async def _parallel_process(self, items: list, process_method: str, *args, **kwargs) -> list:
+    async def _parallel_process(
+        self, items: list, process_method: str, *args, **kwargs
+    ) -> list:
         """Generic parallel processing using Ray workers.
 
         Args:
@@ -912,7 +1045,9 @@ class LocalModel(Policy):
                 futures.append(method.remote([item], *args, **kwargs))
 
             # Gather results (each result is a single-item list)
-            results = await asyncio.gather(*[asyncio.to_thread(ray.get, future) for future in futures])
+            results = await asyncio.gather(
+                *[asyncio.to_thread(ray.get, future) for future in futures]
+            )
 
             # Flatten single-item lists back to individual results
             return [result[0] for result in results]
@@ -929,7 +1064,9 @@ class LocalModel(Policy):
                     self._worker_last_used[i] = 0
 
             # Select the LRU worker
-            lru_worker_idx = min(self._worker_last_used.keys(), key=lambda k: self._worker_last_used[k])
+            lru_worker_idx = min(
+                self._worker_last_used.keys(), key=lambda k: self._worker_last_used[k]
+            )
             worker = self._ray_workers[lru_worker_idx]
 
             # Update last used time
@@ -982,7 +1119,9 @@ class LocalModel(Policy):
             self._wait_for_backend()
 
             self.backend_started = True
-            print(f"Backend ready for {self.model_name}, holding semaphore until stop_backend is called")
+            print(
+                f"Backend ready for {self.model_name}, holding semaphore until stop_backend is called"
+            )
 
         except Exception as e:
             # If startup fails, release the semaphore
@@ -990,7 +1129,9 @@ class LocalModel(Policy):
                 semaphore.release()
                 self._semaphore_held = SemaphoreStatus.NOT_HELD
                 async with LocalModel._active_instances_lock:
-                    LocalModel._active_instances = max(0, LocalModel._active_instances - 1)
+                    LocalModel._active_instances = max(
+                        0, LocalModel._active_instances - 1
+                    )
             raise e
 
     async def stop_backend(self):
@@ -1041,7 +1182,10 @@ class LocalModel(Policy):
                 )
 
     def _preprocess_conversation(
-        self, conversation: list[dict[str, str]], disable_reasoning: bool = False, apply_on_response: bool = False
+        self,
+        conversation: list[dict[str, str]],
+        disable_reasoning: bool = False,
+        apply_on_response: bool = False,
     ) -> list[dict[str, str]]:
         """Preprocess the conversation to handle things like reasoning."""
         conversation = deepcopy(conversation)
@@ -1055,32 +1199,54 @@ class LocalModel(Policy):
                         conversation[idx + 1]["role"] == "assistant"
                         and (
                             "</think>" not in conversation[idx + 1]["content"]
-                            or "<think>\n\n</think>\n\n" in conversation[idx + 1]["content"]
+                            or "<think>\n\n</think>\n\n"
+                            in conversation[idx + 1]["content"]
                         )
                     )
                 ):
                     turn["content"] = "/no_think " + turn["content"].strip()
 
-                elif turn["role"] == "assistant" and apply_on_response and "</think>" not in turn["content"]:
-                    turn["content"] = "<think>\n\n</think>\n\n" + turn["content"].strip()
+                elif (
+                    turn["role"] == "assistant"
+                    and apply_on_response
+                    and "</think>" not in turn["content"]
+                ):
+                    turn["content"] = (
+                        "<think>\n\n</think>\n\n" + turn["content"].strip()
+                    )
 
             if int(os.getenv("DEBUG", "0")) >= 1 and random.random() < 0.01:
-                print("DEBUG: Preprocessed conversation. Saved to data/tmp/preprocessed_conversation.json")
+                print(
+                    "DEBUG: Preprocessed conversation. Saved to data/tmp/preprocessed_conversation.json"
+                )
                 dump_file("data/tmp/preprocessed_conversation.json", conversation)
 
         return conversation
 
-    def _postprocess_response(self, response: str, ignore_reasoning: bool = False) -> str:
+    def _postprocess_response(
+        self, response: str, ignore_reasoning: bool = False
+    ) -> str:
         """Postprocess the response to handle things like reasoning."""
-        if "Qwen3" in self.model_name and "instruct" not in self.model_name.lower() and ignore_reasoning:
+        if (
+            "Qwen3" in self.model_name
+            and "instruct" not in self.model_name.lower()
+            and ignore_reasoning
+        ):
             response = response.replace("<think>\n\n</think>\n\n", "")
-            if "</think>" in response and ignore_reasoning and len(response.split("</think>")) == 2:
+            if (
+                "</think>" in response
+                and ignore_reasoning
+                and len(response.split("</think>")) == 2
+            ):
                 response = response.split("</think>")[1].strip()
 
         return response.strip()
 
-    async def infer_single_async(
-        self, history: list[dict[str, str]], disable_system_prompt: bool = False, **kwargs
+    async def infer_from_history_async(
+        self,
+        history: list[dict[str, str]],
+        disable_system_prompt: bool = False,
+        **kwargs,
     ) -> str:
         """Generate a single response from the model.
 
@@ -1093,10 +1259,17 @@ class LocalModel(Policy):
         :return: The single response.
         :rtype: str
         """
-        return (await self.infer_batch_async([history], disable_system_prompt, **kwargs))[0]
+        return (
+            await self.infer_from_histories_async(
+                [history], disable_system_prompt, **kwargs
+            )
+        )[0]
 
-    async def infer_batch_async(
-        self, histories: list[list[dict[str, str]]], disable_system_prompt: bool = False, **kwargs
+    async def infer_from_histories_async(
+        self,
+        histories: list[list[dict[str, str]]],
+        disable_system_prompt: bool = False,
+        **kwargs,
     ) -> list[str]:
         """Generate responses for a batch of conversations using true parallelization with Ray.
 
@@ -1120,11 +1293,19 @@ class LocalModel(Policy):
             conversation = deepcopy(history)
             if self.system_prompt:
                 if conversation and conversation[0]["role"] == "system":
-                    raise ValueError("System prompt already exists in conversation, cannot add another system prompt")
-                conversation = [{"role": "system", "content": self.system_prompt}] + conversation
+                    raise ValueError(
+                        "System prompt already exists in conversation, cannot add another system prompt"
+                    )
+                conversation = [
+                    {"role": "system", "content": self.system_prompt}
+                ] + conversation
             if disable_system_prompt:
-                conversation = [turn for turn in conversation if turn["role"] != "system"]
-            conversation = self._preprocess_conversation(conversation, disable_reasoning, apply_on_response=False)
+                conversation = [
+                    turn for turn in conversation if turn["role"] != "system"
+                ]
+            conversation = self._preprocess_conversation(
+                conversation, disable_reasoning, apply_on_response=False
+            )
             conversations.append(conversation)
 
         # Extract parameters
@@ -1154,9 +1335,15 @@ class LocalModel(Policy):
                                 "Response contains reasoning. Saved to data/tmp/response_with_reasoning.txt",
                                 stacklevel=2,
                             )
-                            dump_file("data/tmp/response_with_reasoning.txt", raw_response)
+                            dump_file(
+                                "data/tmp/response_with_reasoning.txt", raw_response
+                            )
 
-                        responses.append(self._postprocess_response(raw_response, ignore_reasoning=disable_reasoning))
+                        responses.append(
+                            self._postprocess_response(
+                                raw_response, ignore_reasoning=disable_reasoning
+                            )
+                        )
                     else:
                         responses.append("")
 
@@ -1168,7 +1355,9 @@ class LocalModel(Policy):
                     await asyncio.sleep(2)
                     continue
                 else:
-                    raise RuntimeError(f"Batch inference failed after {max_retries} attempts: {e}") from e
+                    raise RuntimeError(
+                        f"Batch inference failed after {max_retries} attempts: {e}"
+                    ) from e
 
     def supports_logprobs(self) -> bool:
         """
@@ -1192,7 +1381,10 @@ class LocalModel(Policy):
         return (await self.logprobs_batch_async([dialogue], return_summed, **kwargs))[0]
 
     async def logprobs_batch_async(
-        self, dialogues: list[list[dict[str, str]]], return_summed: bool = True, **kwargs
+        self,
+        dialogues: list[list[dict[str, str]]],
+        return_summed: bool = True,
+        **kwargs,
     ) -> list[float] | list[list[float]] | list[list[tuple[float, str]]]:
         """Calculate the log probabilities for a batch of dialogues using true parallelization with Ray.
 
@@ -1207,7 +1399,9 @@ class LocalModel(Policy):
         disable_reasoning = kwargs.get("disable_reasoning", self.disable_reasoning)
 
         if self.response_only:
-            raise ValueError("Logprob calculation is not supported for response-only models")
+            raise ValueError(
+                "Logprob calculation is not supported for response-only models"
+            )
 
         # Ensure backend is started in main process first
         await self._ensure_backend_ready()
@@ -1218,20 +1412,30 @@ class LocalModel(Policy):
             conversation = deepcopy(dialogue)
             if self.system_prompt:
                 if conversation and conversation[0]["role"] == "system":
-                    raise ValueError("System prompt already exists in conversation, cannot add another system prompt")
-                conversation = [{"role": "system", "content": self.system_prompt}] + conversation
-            conversation = self._preprocess_conversation(conversation, disable_reasoning, apply_on_response=True)
+                    raise ValueError(
+                        "System prompt already exists in conversation, cannot add another system prompt"
+                    )
+                conversation = [
+                    {"role": "system", "content": self.system_prompt}
+                ] + conversation
+            conversation = self._preprocess_conversation(
+                conversation, disable_reasoning, apply_on_response=True
+            )
             conversations.append(conversation)
 
         # Debug mode: return results immediately
         if int(os.getenv("DEBUG", "0")) >= 2:
-            return await self._parallel_process(conversations, "process_logprob_chunk", return_summed)
+            return await self._parallel_process(
+                conversations, "process_logprob_chunk", return_summed
+            )
 
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 # Process in parallel across workers
-                results = await self._parallel_process(conversations, "process_logprob_chunk", return_summed)
+                results = await self._parallel_process(
+                    conversations, "process_logprob_chunk", return_summed
+                )
                 return results
 
             except Exception as e:
@@ -1240,7 +1444,9 @@ class LocalModel(Policy):
                     await asyncio.sleep(2)
                     continue
                 else:
-                    raise RuntimeError(f"Batch logprob calculation failed after {max_retries} attempts: {e}") from e
+                    raise RuntimeError(
+                        f"Batch logprob calculation failed after {max_retries} attempts: {e}"
+                    ) from e
 
     async def embed_async(self, texts: list[str], **kwargs) -> list[list[float]]:
         """
@@ -1273,7 +1479,11 @@ class LocalModel(Policy):
             batch = texts[i : i + batch_size]
 
             # Prepare request
-            payload = {"model": self.model_name, "input": batch, "encoding_format": "float"}
+            payload = {
+                "model": self.model_name,
+                "input": batch,
+                "encoding_format": "float",
+            }
 
             # Make request
             try:
@@ -1289,7 +1499,9 @@ class LocalModel(Policy):
             except requests.exceptions.RequestException as e:
                 raise RuntimeError(f"SGlang embedding request failed: {e}") from e
             except (KeyError, ValueError) as e:
-                raise RuntimeError(f"Failed to parse SGlang embedding response: {e}") from e
+                raise RuntimeError(
+                    f"Failed to parse SGlang embedding response: {e}"
+                ) from e
 
         return all_embeddings
 
@@ -1317,7 +1529,9 @@ class LocalModel(Policy):
             metadata={
                 "base_model": self.model_name,
                 "training_samples": len(samples),
-                "validation_samples": len(validation_samples) if validation_samples else 0,
+                "validation_samples": (
+                    len(validation_samples) if validation_samples else 0
+                ),
                 **metadata,
             },
         )
@@ -1333,15 +1547,21 @@ class LocalModel(Policy):
         output_dir = Path("data/models") / trained_policy.colloquial_name
 
         # Prepare training data
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        timestamp = (
+            datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        )
         train_file = output_dir / f"training_data_{timestamp}.jsonl"
         with open(train_file, "w", encoding="utf-8") as f:
             for sample in samples:
                 # Convert SingleSample to chat format
-                messages = sample.history + [{"role": "assistant", "content": sample.output}]
+                messages = sample.history + [
+                    {"role": "assistant", "content": sample.output}
+                ]
                 f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
 
-        logger.major(f"[{model_display_name}] Prepared {len(samples)} training samples at {train_file}")
+        logger.major(
+            f"[{model_display_name}] Prepared {len(samples)} training samples at {train_file}"
+        )
 
         # Prepare validation data if provided
         val_file = None
@@ -1349,10 +1569,16 @@ class LocalModel(Policy):
             val_file = output_dir / f"validation_data_{timestamp}.jsonl"
             with open(val_file, "w", encoding="utf-8") as f:
                 for sample in validation_samples:
-                    messages = sample.history + [{"role": "assistant", "content": sample.output}]
-                    f.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
+                    messages = sample.history + [
+                        {"role": "assistant", "content": sample.output}
+                    ]
+                    f.write(
+                        json.dumps({"messages": messages}, ensure_ascii=False) + "\n"
+                    )
 
-            logger.major(f"[{model_display_name}] Prepared {len(validation_samples)} validation samples at {val_file}")
+            logger.major(
+                f"[{model_display_name}] Prepared {len(validation_samples)} validation samples at {val_file}"
+            )
 
         # Initialize WandB if API key is available and wandb is installed
         wandb_run = None
@@ -1365,7 +1591,9 @@ class LocalModel(Policy):
                     config={
                         "model": self.model_name,
                         "num_train_samples": len(samples),
-                        "num_val_samples": len(validation_samples) if validation_samples else 0,
+                        "num_val_samples": (
+                            len(validation_samples) if validation_samples else 0
+                        ),
                         "max_seq_length": self.max_tokens,
                         **metadata,
                     },
@@ -1376,7 +1604,9 @@ class LocalModel(Policy):
                 logger.major(f"Failed to initialize WandB: {e}")
 
         # Acquire semaphore to limit concurrent LocalModel operations (inference + training)
-        print(f"[{model_display_name}] Waiting to acquire semaphore for SFT training...")
+        print(
+            f"[{model_display_name}] Waiting to acquire semaphore for SFT training..."
+        )
         await semaphore.acquire()
 
         try:
@@ -1391,16 +1621,24 @@ class LocalModel(Policy):
             # Run the actual training in a thread pool to avoid blocking
             loop = asyncio.get_running_loop()
 
-            def _run_training(wandb_run=wandb_run, model_display_name=model_display_name):
+            def _run_training(
+                wandb_run=wandb_run, model_display_name=model_display_name
+            ):
                 # Check if datasets library is available
                 if load_dataset is None:
-                    raise ImportError("datasets library is required for training. Install with: pip install datasets")
+                    raise ImportError(
+                        "datasets library is required for training. Install with: pip install datasets"
+                    )
 
                 # Load datasets
-                train_dataset = load_dataset("json", data_files=str(train_file), split="train")
+                train_dataset = load_dataset(
+                    "json", data_files=str(train_file), split="train"
+                )
                 eval_dataset = None
                 if val_file:
-                    eval_dataset = load_dataset("json", data_files=str(val_file), split="train")
+                    eval_dataset = load_dataset(
+                        "json", data_files=str(val_file), split="train"
+                    )
 
                 # Get multi-GPU configuration
                 gpu_config = LocalModel._get_multi_gpu_config()
@@ -1410,20 +1648,28 @@ class LocalModel(Policy):
                 )
 
                 # Adjust batch size based on GPU count and memory
-                train_batch_size = LocalModel._get_training_batch_size_per_device(self.model_name)
+                train_batch_size = LocalModel._get_training_batch_size_per_device(
+                    self.model_name
+                )
 
                 # With DeepSpeed or multi-GPU, we can use larger effective batch sizes
                 if gpu_config["distributed_type"] == "DEEPSPEED":
                     # DeepSpeed handles gradient accumulation automatically
-                    train_accumulation = max(1, 16 // (train_batch_size * gpu_config["num_gpus"]))
+                    train_accumulation = max(
+                        1, 16 // (train_batch_size * gpu_config["num_gpus"])
+                    )
                 elif gpu_config["num_gpus"] > 1:
                     # Multi-GPU: scale down accumulation since we have multiple GPUs
-                    train_accumulation = max(1, 8 // (train_batch_size * gpu_config["num_gpus"]))
+                    train_accumulation = max(
+                        1, 8 // (train_batch_size * gpu_config["num_gpus"])
+                    )
                 else:
                     # Single GPU: original logic
                     train_accumulation = max(1, 8 // train_batch_size)
 
-                effective_batch_size = train_batch_size * train_accumulation * gpu_config["num_gpus"]
+                effective_batch_size = (
+                    train_batch_size * train_accumulation * gpu_config["num_gpus"]
+                )
                 logger.major(
                     f"Running SFT with per-device batch size {train_batch_size}, "
                     f"accumulation steps {train_accumulation}, "
@@ -1452,12 +1698,18 @@ class LocalModel(Policy):
                     save_steps=200 if eval_dataset else None,
                     bf16=use_bf16,
                     fp16=use_fp16,
-                    deepspeed=gpu_config["deepspeed_config"] if gpu_config["num_gpus"] > 1 else None,
+                    deepspeed=(
+                        gpu_config["deepspeed_config"]
+                        if gpu_config["num_gpus"] > 1
+                        else None
+                    ),
                     remove_unused_columns=False,
                     load_best_model_at_end=True if eval_dataset else False,
                     report_to=["wandb"] if wandb_run else [],
                     # Distributed training settings
-                    ddp_find_unused_parameters=False if gpu_config["num_gpus"] > 1 else None,
+                    ddp_find_unused_parameters=(
+                        False if gpu_config["num_gpus"] > 1 else None
+                    ),
                     dataloader_num_workers=4 if gpu_config["num_gpus"] > 1 else 2,
                     # SFT-specific parameters
                     dataset_text_field=None,  # Using messages format, not text field
@@ -1495,15 +1747,23 @@ class LocalModel(Policy):
                             self.train_losses.append(logs["loss"])
                             metrics["train_loss"] = logs["loss"]
                             if len(self.train_losses) > 1:
-                                metrics["train_loss_ci_lower"] = np.percentile(self.train_losses[-10:], 2.5)
-                                metrics["train_loss_ci_upper"] = np.percentile(self.train_losses[-10:], 97.5)
+                                metrics["train_loss_ci_lower"] = np.percentile(
+                                    self.train_losses[-10:], 2.5
+                                )
+                                metrics["train_loss_ci_upper"] = np.percentile(
+                                    self.train_losses[-10:], 97.5
+                                )
 
                         if "eval_loss" in logs:
                             self.eval_losses.append(logs["eval_loss"])
                             metrics["val_loss"] = logs["eval_loss"]
                             if len(self.eval_losses) > 1:
-                                metrics["val_loss_ci_lower"] = np.percentile(self.eval_losses[-5:], 2.5)
-                                metrics["val_loss_ci_upper"] = np.percentile(self.eval_losses[-5:], 97.5)
+                                metrics["val_loss_ci_lower"] = np.percentile(
+                                    self.eval_losses[-5:], 2.5
+                                )
+                                metrics["val_loss_ci_upper"] = np.percentile(
+                                    self.eval_losses[-5:], 97.5
+                                )
 
                         # SFT-specific metrics from documentation
                         if "entropy" in logs:
@@ -1539,7 +1799,9 @@ class LocalModel(Policy):
 
                         # Also log to console every 3rd logging step
                         if state.global_step % (args.logging_steps * 3) == 0:
-                            status_msg = f"[{model_display_name}] Step {state.global_step}"
+                            status_msg = (
+                                f"[{model_display_name}] Step {state.global_step}"
+                            )
                             if "loss" in logs:
                                 status_msg += f" | Train Loss: {logs['loss']:.4f}"
                             if "eval_loss" in logs:
@@ -1560,7 +1822,9 @@ class LocalModel(Policy):
 
                     def on_log(self, args, state, control, logs=None, **kwargs):
                         if self.metrics_callback:
-                            self.metrics_callback.on_log(args, state, control, logs, **kwargs)
+                            self.metrics_callback.on_log(
+                                args, state, control, logs, **kwargs
+                            )
 
                 # Create trainer
                 trainer = SFTTrainer(
@@ -1569,7 +1833,9 @@ class LocalModel(Policy):
                     eval_dataset=eval_dataset,
                     args=training_args,
                     peft_config=lora_config,
-                    callbacks=[CustomCallback(metrics_callback)] if metrics_callback else [],
+                    callbacks=(
+                        [CustomCallback(metrics_callback)] if metrics_callback else []
+                    ),
                 )
 
                 # Train
@@ -1583,16 +1849,22 @@ class LocalModel(Policy):
 
                         final_metrics = {
                             "final_train_loss": (
-                                np.mean(metrics_callback.train_losses[-10:]) if metrics_callback.train_losses else None
+                                np.mean(metrics_callback.train_losses[-10:])
+                                if metrics_callback.train_losses
+                                else None
                             ),
                             "final_val_loss": (
-                                np.mean(metrics_callback.eval_losses[-5:]) if metrics_callback.eval_losses else None
+                                np.mean(metrics_callback.eval_losses[-5:])
+                                if metrics_callback.eval_losses
+                                else None
                             ),
                             "total_steps": trainer.state.global_step,
                             "total_epochs": trainer.state.epoch,
                         }
                         # Remove None values
-                        final_metrics = {k: v for k, v in final_metrics.items() if v is not None}
+                        final_metrics = {
+                            k: v for k, v in final_metrics.items() if v is not None
+                        }
                         if final_metrics:
                             wandb_run.log(final_metrics)
                     except Exception as e:
@@ -1601,7 +1873,9 @@ class LocalModel(Policy):
                 # Save model
                 trainer.save_model()
 
-                logger.major(f"[{model_display_name}] Training completed, model saved to {output_dir}")
+                logger.major(
+                    f"[{model_display_name}] Training completed, model saved to {output_dir}"
+                )
 
             # Run training in thread pool
             with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -1626,7 +1900,9 @@ class LocalModel(Policy):
             "val_file": str(val_file) if val_file else None,
             "training_completed": True,
         }
-        dump_file(output_dir / f"training_info_{timestamp}.json", training_info, indent=2)
+        dump_file(
+            output_dir / f"training_info_{timestamp}.json", training_info, indent=2
+        )
 
         # Finish WandB run if initialized
         if wandb_run and wandb is not None:
@@ -1666,7 +1942,9 @@ class LocalModel(Policy):
                 "base_model": self.model_name,
                 "training_method": "reinforcement_learning",
                 "training_samples": len(samples),
-                "validation_samples": len(validation_samples) if validation_samples else 0,
+                "validation_samples": (
+                    len(validation_samples) if validation_samples else 0
+                ),
                 **metadata,
             },
         )
@@ -1682,7 +1960,9 @@ class LocalModel(Policy):
         output_dir = Path("data/models") / trained_policy.colloquial_name
 
         # Prepare training data for GRPO
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        timestamp = (
+            datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{random.randint(0, 1000000)}"
+        )
         train_file = output_dir / f"rl_training_data_{timestamp}.jsonl"
 
         # Prepare grader using the new grader system
@@ -1702,7 +1982,9 @@ class LocalModel(Policy):
         elif isinstance(grader, (dict, Callable)):
             grader_instance = create_grader_from_spec(grader)
         else:
-            raise ValueError(f"Invalid grader type: {type(grader)}. Must be a Grader instance, dict, or callable.")
+            raise ValueError(
+                f"Invalid grader type: {type(grader)}. Must be a Grader instance, dict, or callable."
+            )
 
         # Get the grader function for local execution
         # Check if this is a ModelGrader that might need async handling
@@ -1710,7 +1992,9 @@ class LocalModel(Policy):
 
         is_model_grader = isinstance(grader_instance, ModelGrader)
         grader_type = grader_instance.to_openai_spec().get("type", "unknown")
-        logger.major(f"[{model_display_name}] Using grader: {grader_type} type (is_model_grader: {is_model_grader})")
+        logger.major(
+            f"[{model_display_name}] Using grader: {grader_type} type (is_model_grader: {is_model_grader})"
+        )
 
         # Prepare prompts dataset for GRPO (not pre-computed rewards!)
         # GRPO generates completions during training and uses the reward function
@@ -1741,7 +2025,9 @@ class LocalModel(Policy):
 
                 f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
-        logger.major(f"[{model_display_name}] Prepared {len(samples)} RL prompts at {train_file}")
+        logger.major(
+            f"[{model_display_name}] Prepared {len(samples)} RL prompts at {train_file}"
+        )
 
         # Prepare validation data if provided
         val_file = None
@@ -1783,7 +2069,9 @@ class LocalModel(Policy):
                         "model": self.model_name,
                         "training_method": "grpo",
                         "num_train_samples": len(samples),
-                        "num_val_samples": len(validation_samples) if validation_samples else 0,
+                        "num_val_samples": (
+                            len(validation_samples) if validation_samples else 0
+                        ),
                         "max_seq_length": self.max_tokens,
                         "grader_type": grader_type,
                         **metadata,
@@ -1810,7 +2098,9 @@ class LocalModel(Policy):
             # Run the actual training in a thread pool to avoid blocking
             loop = asyncio.get_running_loop()
 
-            def _run_rl_training(wandb_run=wandb_run, model_display_name=model_display_name):
+            def _run_rl_training(
+                wandb_run=wandb_run, model_display_name=model_display_name
+            ):
                 try:
                     if load_dataset is None:
                         raise ImportError(
@@ -1871,7 +2161,9 @@ class LocalModel(Policy):
                                 f"Warning: Inconsistent list lengths in grpo_reward_function: prompts={len(prompts)}, completions={len(completions)}, kwargs={{{', '.join(f'{k}={len(v) if isinstance(v, list) else type(v).__name__}' for k, v in kwargs.items())}}}"
                             )
 
-                        for i, (prompt, completion) in enumerate(zip(prompts, completions, strict=False)):
+                        for i, (prompt, completion) in enumerate(
+                            zip(prompts, completions, strict=False)
+                        ):
                             # Apply the grader
                             try:
                                 # Build aux_info from all available fields in kwargs
@@ -1897,13 +2189,18 @@ class LocalModel(Policy):
                                     and i < len(correct_option)
                                 ):
                                     aux_info["correct_option"] = correct_option[i]
-                                if options is not None and isinstance(options, list) and i < len(options):
+                                if (
+                                    options is not None
+                                    and isinstance(options, list)
+                                    and i < len(options)
+                                ):
                                     aux_info["options"] = options[i]
 
                                 # Add any other list fields from kwargs (except aux_info which we already handled)
                                 for k, v in kwargs.items():
                                     if (
-                                        k not in ["correct_option", "options", "aux_info"]
+                                        k
+                                        not in ["correct_option", "options", "aux_info"]
                                         and isinstance(v, list)
                                         and i < len(v)
                                     ):
@@ -1912,9 +2209,15 @@ class LocalModel(Policy):
                                 # Create the sample for grading
                                 single_sample = SingleSample(
                                     history=(
-                                        [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
+                                        [{"role": "user", "content": prompt}]
+                                        if isinstance(prompt, str)
+                                        else prompt
                                     ),
-                                    output=(completion if isinstance(completion, str) else completion[0]["content"]),
+                                    output=(
+                                        completion
+                                        if isinstance(completion, str)
+                                        else completion[0]["content"]
+                                    ),
                                     aux_info=aux_info,
                                 )
 
@@ -1943,13 +2246,21 @@ class LocalModel(Policy):
                     )
 
                     # GRPO training configuration with multi-GPU support
-                    train_batch_size = LocalModel._get_training_batch_size_per_device(self.model_name)
-                    train_accumulation = max(1, 8 // (train_batch_size * gpu_config["num_gpus"]))
+                    train_batch_size = LocalModel._get_training_batch_size_per_device(
+                        self.model_name
+                    )
+                    train_accumulation = max(
+                        1, 8 // (train_batch_size * gpu_config["num_gpus"])
+                    )
 
                     # GRPO requires at least 2 generations per prompt for advantages calculation
-                    num_generations = max(2, min(16, train_batch_size * gpu_config["num_gpus"]))
+                    num_generations = max(
+                        2, min(16, train_batch_size * gpu_config["num_gpus"])
+                    )
 
-                    effective_batch_size = train_batch_size * train_accumulation * gpu_config["num_gpus"]
+                    effective_batch_size = (
+                        train_batch_size * train_accumulation * gpu_config["num_gpus"]
+                    )
 
                     logger.major(
                         f"Running GRPO with per-device batch size {train_batch_size}, "
@@ -1958,7 +2269,9 @@ class LocalModel(Policy):
                     )
 
                     # Configure mixed precision
-                    use_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                    use_bf16 = (
+                        torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+                    )
                     use_fp16 = not use_bf16 and torch.cuda.is_available()
 
                     # Enable DeepSpeed when using accelerate launch with multi-GPU
@@ -1984,12 +2297,16 @@ class LocalModel(Policy):
                         save_steps=200 if eval_dataset else None,
                         bf16=use_bf16,
                         fp16=use_fp16,
-                        deepspeed=gpu_config["deepspeed_config"] if use_deepspeed else None,
+                        deepspeed=(
+                            gpu_config["deepspeed_config"] if use_deepspeed else None
+                        ),
                         remove_unused_columns=False,
                         load_best_model_at_end=True if eval_dataset else False,
                         report_to=["wandb"] if wandb_run else [],
                         # Distributed training settings
-                        ddp_find_unused_parameters=False if gpu_config["num_gpus"] > 1 else None,
+                        ddp_find_unused_parameters=(
+                            False if gpu_config["num_gpus"] > 1 else None
+                        ),
                         dataloader_num_workers=4 if gpu_config["num_gpus"] > 1 else 2,
                         # GRPO specific parameters
                         num_generations=num_generations,  # Number of generations per prompt
@@ -2014,7 +2331,12 @@ class LocalModel(Policy):
                     class RLMetricsCallback:
                         def __init__(self, wandb_run):
                             self.wandb_run = wandb_run
-                            self.metrics_history = {"rewards": [], "entropy": [], "kl": [], "clip_ratio": []}
+                            self.metrics_history = {
+                                "rewards": [],
+                                "entropy": [],
+                                "kl": [],
+                                "clip_ratio": [],
+                            }
 
                         def on_log(self, args, state, control, logs=None, **kwargs):
                             if not self.wandb_run or not logs:
@@ -2048,11 +2370,15 @@ class LocalModel(Policy):
                                 metrics["kl_divergence"] = logs["kl"]
 
                             if "clip_ratio/region_mean" in logs:
-                                self.metrics_history["clip_ratio"].append(logs["clip_ratio/region_mean"])
+                                self.metrics_history["clip_ratio"].append(
+                                    logs["clip_ratio/region_mean"]
+                                )
                                 metrics["clip_ratio"] = logs["clip_ratio/region_mean"]
 
                             if "completions/mean_length" in logs:
-                                metrics["mean_completion_length"] = logs["completions/mean_length"]
+                                metrics["mean_completion_length"] = logs[
+                                    "completions/mean_length"
+                                ]
 
                             if "learning_rate" in logs:
                                 metrics["lr"] = logs["learning_rate"]
@@ -2078,7 +2404,9 @@ class LocalModel(Policy):
                                 logger.major(status_msg)
 
                     # Create callback instance
-                    metrics_callback = RLMetricsCallback(wandb_run) if wandb_run else None
+                    metrics_callback = (
+                        RLMetricsCallback(wandb_run) if wandb_run else None
+                    )
 
                     # Create trainer callbacks
                     from transformers import TrainerCallback
@@ -2089,7 +2417,9 @@ class LocalModel(Policy):
 
                         def on_log(self, args, state, control, logs=None, **kwargs):
                             if self.metrics_callback:
-                                self.metrics_callback.on_log(args, state, control, logs, **kwargs)
+                                self.metrics_callback.on_log(
+                                    args, state, control, logs, **kwargs
+                                )
 
                     # Create GRPO trainer with reward function
                     # Let TRL handle model loading and distribution for both single and multi-GPU
@@ -2100,11 +2430,17 @@ class LocalModel(Policy):
                         args=training_args,
                         peft_config=lora_config,
                         reward_funcs=grpo_reward_function,  # Pass the reward function
-                        callbacks=[CustomRLCallback(metrics_callback)] if metrics_callback else [],
+                        callbacks=(
+                            [CustomRLCallback(metrics_callback)]
+                            if metrics_callback
+                            else []
+                        ),
                     )
 
                     # Train
-                    logger.major(f"[{model_display_name}] RL training with GRPO in progress...")
+                    logger.major(
+                        f"[{model_display_name}] RL training with GRPO in progress..."
+                    )
                     trainer.train()
 
                     # Log final metrics if WandB is active
@@ -2114,22 +2450,36 @@ class LocalModel(Policy):
 
                             final_metrics = {
                                 "final_train_loss": (
-                                    np.mean(metrics_callback.metrics_history["train_loss"][-10:])
+                                    np.mean(
+                                        metrics_callback.metrics_history["train_loss"][
+                                            -10:
+                                        ]
+                                    )
                                     if metrics_callback.metrics_history["train_loss"]
                                     else None
                                 ),
                                 "final_val_loss": (
-                                    np.mean(metrics_callback.metrics_history["eval_loss"][-5:])
+                                    np.mean(
+                                        metrics_callback.metrics_history["eval_loss"][
+                                            -5:
+                                        ]
+                                    )
                                     if metrics_callback.metrics_history["eval_loss"]
                                     else None
                                 ),
                                 "final_mean_reward": (
-                                    np.mean(metrics_callback.metrics_history["rewards"][-10:])
+                                    np.mean(
+                                        metrics_callback.metrics_history["rewards"][
+                                            -10:
+                                        ]
+                                    )
                                     if metrics_callback.metrics_history["rewards"]
                                     else None
                                 ),
                                 "final_kl_div": (
-                                    np.mean(metrics_callback.metrics_history["kl_div"][-10:])
+                                    np.mean(
+                                        metrics_callback.metrics_history["kl_div"][-10:]
+                                    )
                                     if metrics_callback.metrics_history["kl_div"]
                                     else None
                                 ),
@@ -2137,19 +2487,27 @@ class LocalModel(Policy):
                                 "total_epochs": trainer.state.epoch,
                             }
                             # Remove None values
-                            final_metrics = {k: v for k, v in final_metrics.items() if v is not None}
+                            final_metrics = {
+                                k: v for k, v in final_metrics.items() if v is not None
+                            }
                             if final_metrics:
                                 wandb_run.log(final_metrics)
                         except Exception as e:
-                            logger.major(f"Failed to log final RL metrics to WandB: {e}")
+                            logger.major(
+                                f"Failed to log final RL metrics to WandB: {e}"
+                            )
 
                     # Save model
                     trainer.save_model()
 
-                    logger.major(f"[{model_display_name}] RL training completed, model saved to {output_dir}")
+                    logger.major(
+                        f"[{model_display_name}] RL training completed, model saved to {output_dir}"
+                    )
 
                 except ImportError as e:
-                    logger.major(f"Failed to import required RL training libraries: {e}")
+                    logger.major(
+                        f"Failed to import required RL training libraries: {e}"
+                    )
                     logger.major("Install with: pip install trl transformers datasets")
                     raise
                 except Exception as e:
@@ -2181,7 +2539,9 @@ class LocalModel(Policy):
             "grader_type": grader_type,
             "training_completed": True,
         }
-        dump_file(output_dir / f"rl_training_info_{timestamp}.json", training_info, indent=2)
+        dump_file(
+            output_dir / f"rl_training_info_{timestamp}.json", training_info, indent=2
+        )
 
         # Finish WandB run if initialized
         if wandb_run and wandb is not None:
@@ -2216,7 +2576,10 @@ class LocalModel(Policy):
                 pass
 
         # Release semaphore if we're still holding it
-        if hasattr(self, "_semaphore_held") and self._semaphore_held == SemaphoreStatus.HELD:
+        if (
+            hasattr(self, "_semaphore_held")
+            and self._semaphore_held == SemaphoreStatus.HELD
+        ):
             try:
                 semaphore = get_localmodel_semaphore()
                 semaphore.release()

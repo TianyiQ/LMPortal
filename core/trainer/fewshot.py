@@ -1,15 +1,13 @@
 """
 Few-shot trainer.
-Takes top-scoring trajectories and formats them as in-context examples.
+Takes samples and formats them as in-context examples.
 """
 
 import dataclasses
 import os
-import random
 from typing import Optional
 
-from core.policy.schema import Policy
-from core.reasoning.schema import ReasoningMode, ReasoningTrajectory
+from core.policy.schema import Policy, SingleSample
 from core.trainer.schema import Trainer, TrainingConfig
 from utils.io_utils import logger
 
@@ -47,7 +45,12 @@ class FewShotConfig(TrainingConfig):
     def _is_valid_identifier(cls, identifier: str) -> bool:
         """Check if the identifier is a valid FewShotConfig identifier."""
         parts = identifier.split("-")
-        return len(parts) == 3 and parts[0] == "fewshot" and parts[1].startswith("n") and parts[2].startswith("p")
+        return (
+            len(parts) == 3
+            and parts[0] == "fewshot"
+            and parts[1].startswith("n")
+            and parts[2].startswith("p")
+        )
 
     @classmethod
     def _parse_identifier(cls, identifier: str, **kwargs) -> "FewShotConfig":
@@ -79,16 +82,14 @@ class FewShotTrainer(Trainer):
     async def train_async(
         self,
         policy: Policy,
-        trajectory_score_files: list[str],
-        reasoning_mode: Optional[ReasoningMode] = None,
+        samples: list[SingleSample],
         **kwargs,
     ) -> Policy:
         """
-        Create a new policy with few-shot examples from top trajectories.
+        Create a new policy with few-shot examples from provided samples.
 
         :param policy: The base policy to add few-shot examples to
-        :param trajectory_score_files: Paths to the sorted trajectories files
-        :param reasoning_mode: The reasoning mode used (for formatting examples)
+        :param samples: List of SingleSample to use as few-shot examples
         :param kwargs: Additional arguments
         :return: New policy with few-shot examples
         """
@@ -97,82 +98,52 @@ class FewShotTrainer(Trainer):
             logger.urgent(
                 f"WARNING: FewShotTrainer ignoring validation_strategy='{self.config.validation_strategy}'. Ignoring validation."
             )
-        # Select top trajectories. Scores from different files may be incomparable, so we need to select top trajectories from each file separately.
-        top_trajectories = []
-        total_trajectories = sum(len(self.load_trajectory_scores(score_file)) for score_file in trajectory_score_files)
-        for score_file in trajectory_score_files:
-            trajectory_score_pairs = self.load_trajectory_scores(score_file)
-            if trajectory_score_pairs:
-                top_trajectories.extend(
-                    self.select_top_trajectories(
-                        trajectory_score_pairs,
-                        top_percentage=self.config.top_percentage,  # rounded down
-                        top_count=int(
-                            self.config.top_count * len(trajectory_score_pairs) / total_trajectories + 0.99
-                        ),  # rounded up
-                        use_min=True,
-                    )
-                )
 
-        logger.major(
-            f"Selected {len(top_trajectories)} top trajectories out of {total_trajectories} total from {len(trajectory_score_files)} files"
-        )
+        if not samples:
+            raise ValueError("No samples provided for few-shot training")
 
-        if not top_trajectories:
-            raise ValueError(f"Insufficiently many trajectories found in {trajectory_score_files}")
+        logger.major(f"Received {len(samples)} samples for few-shot examples")
 
-        # Convert trajectories to few-shot examples
-        few_shot_examples = self.trajectories_to_few_shot(top_trajectories, reasoning_mode)
+        # Convert samples to few-shot dialogue examples
+        few_shot_examples = self.samples_to_few_shot(samples)
 
         logger.major(f"Created {len(few_shot_examples)} few-shot dialogue turns")
 
         # Prepare metadata
-        metadata = self.build_metadata(
-            policy, trajectory_score_files, num_samples=len(few_shot_examples) // 2, **kwargs
-        )
+        metadata = {
+            "training_type": self.__class__.__name__,
+            "base_model": policy.colloquial_name,
+            "num_samples": len(few_shot_examples) // 2,  # Assuming pairs
+            **kwargs,
+        }
 
         # Add few-shot examples to policy (creates new policy)
         # Note: add_few_shot_examples is synchronous as it doesn't involve training
-        logger.minor(f"Adding {len(few_shot_examples)} dialogue turns as few-shot examples...")
-        trained_policy = policy.add_few_shot_examples(few_shot_examples, metadata=metadata)
+        logger.minor(
+            f"Adding {len(few_shot_examples)} dialogue turns as few-shot examples..."
+        )
+        trained_policy = policy.add_few_shot_examples(
+            few_shot_examples, metadata=metadata
+        )
 
         logger.major(f"Few-shot training completed, trained policy: {trained_policy}")
 
         return trained_policy
 
-    def trajectories_to_few_shot(
-        self, trajectories: list[ReasoningTrajectory], reasoning_mode: Optional[ReasoningMode] = None
-    ) -> list[dict[str, str]]:
+    def samples_to_few_shot(self, samples: list[SingleSample]) -> list[dict[str, str]]:
         """
-        Convert trajectories to few-shot dialogue examples.
+        Convert SingleSample instances to few-shot dialogue examples.
 
-        For each trajectory, we use reasoning_mode.trajectory_to_samples to get samples,
-        then randomly select one sample and format it as a complete dialogue.
-
-        :param trajectories: List of reasoning trajectories
-        :param reasoning_mode: The reasoning mode for formatting (required)
+        :param samples: List of SingleSample
         :return: List of dialogue turns in OpenAI format
         """
-        if reasoning_mode is None:
-            raise ValueError("reasoning_mode is required for few-shot formatting")
-
         few_shot_examples = []
 
-        for traj in trajectories:
+        for sample in samples:
             try:
-                # Get all possible samples from this trajectory
-                samples = reasoning_mode.trajectory_to_samples(traj)
-
-                if not samples:
-                    logger.major("WARNING: No samples generated from trajectory", dedup="message_stem", max_count=5)
-                    continue
-
-                # Randomly select one sample to avoid partial duplicates
-                selected_sample = random.choice(samples)
-
                 # Convert the sample to a complete dialogue (history + output)
-                dialogue = selected_sample.history.copy()
-                dialogue.append({"role": "assistant", "content": selected_sample.output})
+                dialogue = sample.history.copy()
+                dialogue.append({"role": "assistant", "content": sample.output})
 
                 # Add all turns to few-shot examples
                 few_shot_examples.extend(dialogue)
@@ -181,7 +152,7 @@ class FewShotTrainer(Trainer):
                 import traceback
 
                 logger.major(
-                    "WARNING: Failed to format trajectory: {}",
+                    "WARNING: Failed to format sample: {}",
                     str(e) + traceback.format_exc(),
                     dedup="message_stem",
                     max_count=5,

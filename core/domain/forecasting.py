@@ -37,11 +37,16 @@ class Forecasting(ProblemDomain):
         self.date_cutoff = date_cutoff
 
         # Access debating data
-        self.dataset_paths = [os.path.join("data", "questions", dataset_file) for dataset_file in dataset_files]
+        self.dataset_paths = [
+            os.path.join("data", "questions", dataset_file)
+            for dataset_file in dataset_files
+        ]
 
         # Try to load existing data or fetch if missing
         self.dataset_content = []
-        for dataset_file, dataset_path in zip(dataset_files, self.dataset_paths, strict=False):
+        for dataset_file, dataset_path in zip(
+            dataset_files, self.dataset_paths, strict=False
+        ):
             if os.path.exists(dataset_path):
                 logger.minor(f"Loading existing {dataset_file}...")
                 self.dataset_content.extend(load_file(dataset_path))
@@ -53,16 +58,22 @@ class Forecasting(ProblemDomain):
                         os.makedirs(os.path.dirname(dataset_path), exist_ok=True)
                         dump_file(dataset_path, fetched_data, indent=2)
                         self.dataset_content.extend(fetched_data)
-                        logger.major(f"Saved {len(fetched_data)} Metaculus questions to {dataset_path}")
+                        logger.major(
+                            f"Saved {len(fetched_data)} Metaculus questions to {dataset_path}"
+                        )
                 elif "polymarket" in dataset_file:
                     fetched_data = self._fetch_polymarket_resolved_binary()
                     if fetched_data:
                         os.makedirs(os.path.dirname(dataset_path), exist_ok=True)
                         dump_file(dataset_path, fetched_data, indent=2)
                         self.dataset_content.extend(fetched_data)
-                        logger.major(f"Saved {len(fetched_data)} PolyMarket questions to {dataset_path}")
+                        logger.major(
+                            f"Saved {len(fetched_data)} PolyMarket questions to {dataset_path}"
+                        )
             else:
-                logger.major(f"File {dataset_path} not found and auto_fetch is disabled")
+                logger.major(
+                    f"File {dataset_path} not found and auto_fetch is disabled"
+                )
 
         # Parse questions
         self.questions_all = [
@@ -85,10 +96,13 @@ class Forecasting(ProblemDomain):
                 q["marketType"] in ["binary", "normal", None]
                 and q["resolution"] in q["outcomes"]
                 and len(q["outcomes"]) == 2
-                and ("Short" not in q["outcomes"] or "Long" not in q["outcomes"])  # Rule out scalar markets
+                and (
+                    "Short" not in q["outcomes"] or "Long" not in q["outcomes"]
+                )  # Rule out scalar markets
                 and q["resolution"] is not None
                 and q["endTime"] is not None
-                and datetime.fromisoformat(q["endTime"]) >= datetime.fromisoformat(self.date_cutoff)
+                and datetime.fromisoformat(q["endTime"])
+                >= datetime.fromisoformat(self.date_cutoff)
             )
         ]
 
@@ -105,7 +119,9 @@ class Forecasting(ProblemDomain):
         all_markets = []
         seen_ids = set()  # Track unique market IDs to avoid duplicates
 
-        logger.minor(f"Fetching PolyMarket markets (target: {self.max_questions_per_source})...")
+        logger.minor(
+            f"Fetching PolyMarket markets (target: {self.max_questions_per_source})..."
+        )
 
         # Try multiple strategies to ensure comprehensive coverage
         strategies = [
@@ -122,9 +138,19 @@ class Forecasting(ProblemDomain):
             consecutive_empty = 0
             max_consecutive_empty = 5
 
-            with tqdm.tqdm(desc=f"PolyMarket ({strategy['order']})", unit="market") as pbar:
-                while consecutive_empty < max_consecutive_empty and len(all_markets) < self.max_questions_per_source:
-                    params = {"closed": "true", "limit": batch_size, "offset": offset, **strategy}
+            with tqdm.tqdm(
+                desc=f"PolyMarket ({strategy['order']})", unit="market"
+            ) as pbar:
+                while (
+                    consecutive_empty < max_consecutive_empty
+                    and len(all_markets) < self.max_questions_per_source
+                ):
+                    params = {
+                        "closed": "true",
+                        "limit": batch_size,
+                        "offset": offset,
+                        **strategy,
+                    }
 
                     # Add date cutoff if specified
                     if self.date_cutoff:
@@ -153,7 +179,9 @@ class Forecasting(ProblemDomain):
                         if new_markets:
                             all_markets.extend(new_markets)
                             pbar.update(len(new_markets))
-                            pbar.set_postfix({"unique": len(all_markets), "offset": offset})
+                            pbar.set_postfix(
+                                {"unique": len(all_markets), "offset": offset}
+                            )
 
                         offset += len(batch)
 
@@ -204,7 +232,9 @@ class Forecasting(ProblemDomain):
                 # Apply date cutoff if specified
                 if self.date_cutoff:
                     try:
-                        end_date = datetime.fromisoformat(m.get("endDate", "").replace("Z", "+00:00"))
+                        end_date = datetime.fromisoformat(
+                            m.get("endDate", "").replace("Z", "+00:00")
+                        )
                         cutoff_date = datetime.fromisoformat(self.date_cutoff)
                         if end_date < cutoff_date:
                             continue
@@ -219,7 +249,9 @@ class Forecasting(ProblemDomain):
                     "category": m.get("category"),
                     "endTime": m.get("endDate"),
                     "volume": float(m.get("volume", 0)) if m.get("volume") else 0,
-                    "liquidity": float(m.get("liquidity", 0)) if m.get("liquidity") else 0,
+                    "liquidity": (
+                        float(m.get("liquidity", 0)) if m.get("liquidity") else 0
+                    ),
                     "outcomes": outcomes,
                     "outcomePrices": outcomePrices,
                     "resolution": resolution,
@@ -239,19 +271,45 @@ class Forecasting(ProblemDomain):
         all_questions = []
         seen_ids = set()  # Track unique question IDs to avoid duplicates
 
-        logger.minor(f"Fetching Metaculus questions (target: {self.max_questions_per_source})...")
+        logger.minor(
+            f"Fetching Metaculus questions (target: {self.max_questions_per_source})..."
+        )
 
         # Try multiple parameter combinations to maximize coverage
         param_sets = [
-            {"statuses": "resolved", "forecast_type": "binary", "order_by": "-vote_score"},
-            {"statuses": "resolved", "forecast_type": "binary", "order_by": "vote_score"},
-            {"statuses": "resolved", "forecast_type": "binary", "order_by": "-created_at"},
-            {"statuses": "resolved", "forecast_type": "binary", "order_by": "created_at"},
-            {"statuses": "resolved", "forecast_type": "binary", "order_by": "-scheduled_resolve_time"},
+            {
+                "statuses": "resolved",
+                "forecast_type": "binary",
+                "order_by": "-vote_score",
+            },
+            {
+                "statuses": "resolved",
+                "forecast_type": "binary",
+                "order_by": "vote_score",
+            },
+            {
+                "statuses": "resolved",
+                "forecast_type": "binary",
+                "order_by": "-created_at",
+            },
+            {
+                "statuses": "resolved",
+                "forecast_type": "binary",
+                "order_by": "created_at",
+            },
+            {
+                "statuses": "resolved",
+                "forecast_type": "binary",
+                "order_by": "-scheduled_resolve_time",
+            },
         ]
 
         # Try different date ranges if no specific cutoff is provided
-        date_ranges = [self.date_cutoff] if self.date_cutoff else [None, "2020-01-01", "2018-01-01", "2015-01-01"]
+        date_ranges = (
+            [self.date_cutoff]
+            if self.date_cutoff
+            else [None, "2020-01-01", "2018-01-01", "2015-01-01"]
+        )
 
         for params in param_sets:
             if len(all_questions) >= self.max_questions_per_source:
@@ -266,7 +324,10 @@ class Forecasting(ProblemDomain):
                 elif "scheduled_resolve_time__gt" in params:
                     del params["scheduled_resolve_time__gt"]
 
-                with tqdm.tqdm(desc=f"Metaculus ({params.get('order_by', 'default')})", unit="question") as pbar:
+                with tqdm.tqdm(
+                    desc=f"Metaculus ({params.get('order_by', 'default')})",
+                    unit="question",
+                ) as pbar:
                     try:
                         response = requests.get(url, params=params, timeout=30)
 
@@ -290,7 +351,10 @@ class Forecasting(ProblemDomain):
                                 pbar.update(1)
 
                         # Follow pagination
-                        while next_page and len(all_questions) < self.max_questions_per_source:
+                        while (
+                            next_page
+                            and len(all_questions) < self.max_questions_per_source
+                        ):
                             try:
                                 response = requests.get(next_page, timeout=30)
 
@@ -341,7 +405,9 @@ class Forecasting(ProblemDomain):
             # Apply date cutoff
             if self.date_cutoff and q.get("scheduled_resolve_time"):
                 try:
-                    resolve_time = datetime.fromisoformat(q["scheduled_resolve_time"].replace("Z", "+00:00"))
+                    resolve_time = datetime.fromisoformat(
+                        q["scheduled_resolve_time"].replace("Z", "+00:00")
+                    )
                     cutoff_date = datetime.fromisoformat(self.date_cutoff)
                     if resolve_time < cutoff_date:
                         continue

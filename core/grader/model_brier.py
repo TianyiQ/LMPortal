@@ -127,7 +127,9 @@ Output (single number only):""",
             return False
         return True
 
-    async def grade_async(self, sample: SingleSample, item: dict[str, Any] | None = None) -> float:
+    async def grade_async(
+        self, sample: SingleSample, item: dict[str, Any] | None = None
+    ) -> float:
         """
         Grade a sample by extracting belief and calculating Brier score.
 
@@ -151,9 +153,13 @@ Output (single number only):""",
 
         # Validate required fields
         if "correct_option" not in item:
-            raise ValueError("ModelBrierGrader requires 'correct_option' in item or sample.aux_info")
+            raise ValueError(
+                "ModelBrierGrader requires 'correct_option' in item or sample.aux_info"
+            )
         if "options" not in item:
-            raise ValueError("ModelBrierGrader requires 'options' in item or sample.aux_info")
+            raise ValueError(
+                "ModelBrierGrader requires 'options' in item or sample.aux_info"
+            )
 
         # Use parent's grade method which handles the model call
         return await super().grade_async(sample, item)

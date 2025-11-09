@@ -6,10 +6,11 @@ This repository provides a unified infrastructure for language model training an
 
 Key features:
 - **Unified Policy Interface**: Work with API models, local models, batch APIs, Claude Code agents, and even humans through the same interface
+- **Flexible Inference**: The new `infer()` and `infer_many()` methods accept multiple input types (histories, Samples, Problems, or Domains) and return appropriate output types
 - **Fully Parallelized**: The pipeline is fully asynchronous and parallelized, achieving maximum concurrency for both inference and training. Optional support for Ray to increase multi-core CPU utilization
-- **Flexible Inference and Training**: Support for inference (API-based/local, generative/held-out logprob, single/batch), SFT (via OpenAI/TogetherAI API or local), RL (via OpenAI API or local), and few-shot learning
-- **Domain Abstractions**: Problem domain interface, with predefined implementations for forecasting, research Q&A, conceptual reasoning, intellectual reasoning, OpenReview, and ChangeMyView opinion evaluation tasks.
-- **Grader Framework**: Grader interface (Python-based/LLM-based, for local RL/OpenAI API-based RL/model evaluation), with predefined implementations for Brier score and agreement score.
+- **Flexible Training**: Support for SFT (via OpenAI/TogetherAI API or local), RL (via OpenAI API or local), and few-shot learning
+- **Domain Abstractions**: Problem domain interface, with predefined implementations for forecasting, research Q&A, conceptual reasoning, intellectual reasoning, OpenReview, and ChangeMyView opinion evaluation tasks
+- **Grader Framework**: Grader interface (Python-based/LLM-based), with predefined implementations for Brier score and agreement score
 
 ## Installation
 
@@ -21,9 +22,25 @@ uv pip install -e lib/safety_tooling
 uv pip install -e .
 ```
 
+## Recommended Configuration
+
+For optimal performance, set these environment variables:
+
+```bash
+export USE_RAY=1          # Enable Ray for parallel API calls and multi-core utilization
+export USE_OPENROUTER=1   # Use OpenRouter for cost-effective model routing
+export OPENROUTER_API_KEY="your-key"
+```
+
+**Benefits:**
+- `USE_RAY=1`: Parallelizes API calls across multiple workers, maximizing throughput (>100k tokens/s)
+- `USE_OPENROUTER=1`: Routes requests through OpenRouter for better pricing and availability (requires `USE_RAY=1`)
+
 ## Usage Examples
 
-### Example 1: Basic Policy Inference
+### Example 1: Basic Flexible Inference
+
+The `infer()` method is the recommended way to do inference - it accepts multiple input types and returns appropriate outputs:
 
 ```python
 from utils.policy_utils import create_policy_from_string
@@ -31,24 +48,71 @@ from utils.policy_utils import create_policy_from_string
 # Create a policy (automatically detects provider)
 policy = create_policy_from_string("o4-mini")
 
-# Single inference
-response = policy.infer_single("What is the capital of France?")
-print(response)
+# Simple string inference
+response = policy.infer("What is the capital of France?")
+print(response)  # Returns: str
 
-# Batch inference
-responses = policy.infer_batch([
-    "What is 2+2?",
-    "Name three programming languages.",
+# Or with history
+response = policy.infer([
+    {"role": "user", "content": "What is 2+2?"}
 ])
+print(response)  # Returns: str
 ```
 
-### Example 2: Working with Domains
+### Example 2: Inference with Problems and Domains
+
+The flexible `infer()` method can directly work with Problems and Domains:
 
 ```python
-from core.domain.conceptual import ConceptualDomain
+from core.domain.conceptual import Conceptual
+from utils.policy_utils import create_policy_from_string
+
+policy = create_policy_from_string("o4-mini")
+domain = Conceptual()
+
+# Infer from a single problem
+problem = domain.sample_problems(n=1)[0]
+result = policy.infer(problem.to_sample())
+print(f"Question: {result.history[0]['content']}")
+print(f"Answer: {result.output}")  # Returns: SingleSample
+
+# Infer directly from domain (samples 1 problem automatically)
+result = policy.infer(domain)
+print(result)  # Returns: SingleSample
+```
+
+### Example 3: Batch Flexible Inference
+
+The `infer_many()` method handles batch inference with flexible input types:
+
+```python
+from utils.policy_utils import create_policy_from_string
+from core.domain.conceptual import Conceptual
+
+policy = create_policy_from_string("o4-mini")
+domain = Conceptual()
+
+# Batch inference from multiple problems
+problems = domain.sample_problems(n=3)
+samples = [p.to_sample() for p in problems]
+results = policy.infer_many(samples)
+for result in results:
+    print(f"Q: {result.history[0]['content']}")
+    print(f"A: {result.output}")
+# Returns: list[SingleSample]
+
+# Or directly from domain with count
+results = policy.infer_many((domain, 5))  # Sample 5 problems from domain
+print(f"Generated {len(results)} responses")  # Returns: list[SingleSample]
+```
+
+### Example 4: Working with Domains
+
+```python
+from core.domain.conceptual import Conceptual
 
 # Load domain
-domain = ConceptualDomain()
+domain = Conceptual()
 
 # Sample problems
 problems = domain.sample_problems(n=5, split="train")
@@ -57,9 +121,60 @@ for problem in problems:
     print(f"Q: {problem.question}")
     if hasattr(problem, "correct_option"):
         print(f"Answer: {problem.options[problem.correct_option]}")
+
+    # Convert problem to Sample for inference
+    sample = problem.to_sample()
+    print(f"Sample history: {sample.history}")
 ```
 
-### Example 3: Supervised Fine-Tuning
+### Example 5: Human-AI Dialogue
+
+Create interactive dialogues between human and AI policies:
+
+```python
+from core.policy.human import Human
+from utils.policy_utils import create_policy_from_string
+
+# Create policies
+human = Human()
+ai = create_policy_from_string("o4-mini")
+
+# Start dialogue
+history = []
+for turn in range(3):
+    # Human turn
+    human_msg = human.infer_from_history(history)
+    history.append({"role": "user", "content": human_msg})
+    print(f"Human: {human_msg}")
+
+    # AI turn
+    ai_msg = ai.infer_from_history(history)
+    history.append({"role": "assistant", "content": ai_msg})
+    print(f"AI: {ai_msg}")
+```
+
+### Example 6: Claude Code Agent Inference
+
+Use Claude Code agents for complex reasoning tasks:
+
+```python
+from core.policy.claudecode import ClaudeCode
+
+# Create Claude Code agent policy
+agent = ClaudeCode()
+
+# Infer with code execution capabilities
+result = agent.infer("Write a Python function to calculate fibonacci numbers and test it with n=10")
+print(f"Agent response: {result}")
+
+# The agent can execute code, read files, and use tools
+result = agent.infer("Analyze the performance of the policy inference methods in core/policy/schema.py")
+print(f"Analysis: {result}")
+```
+
+### Example 7: Supervised Fine-Tuning
+
+SFT trainers now accept `list[SingleSample]` directly:
 
 ```python
 from utils.policy_utils import create_policy_from_string
@@ -72,6 +187,10 @@ samples = [
         history=[{"role": "user", "content": "What is 2+2?"}],
         output="4",
     ),
+    SingleSample(
+        history=[{"role": "user", "content": "What is the capital of France?"}],
+        output="Paris",
+    ),
     # ... more samples
 ]
 
@@ -79,7 +198,7 @@ samples = [
 config = SFTConfig(
     num_epochs=2,
     learning_rate=1e-5,
-    validation_strategy="train" # split from training set
+    validation_strategy="train"  # split from training set
 )
 trainer = SFTTrainer(config)
 
@@ -87,19 +206,53 @@ trainer = SFTTrainer(config)
 base_policy = create_policy_from_string("gpt-4o")
 trained_policy = trainer.train(
     policy=base_policy,
-    trajectory_score_files=["path/to/scored_trajectories.json"]
+    samples=samples
 )
 ```
 
-### Example 4: Reinforcement Learning with Graders
+### Example 8: Few-Shot Learning
+
+Few-shot trainers also accept `list[SingleSample]`:
 
 ```python
-from core.domain.forecasting import ForecastingDomain
+from utils.policy_utils import create_policy_from_string
+from core.policy.schema import SingleSample
+from core.trainer.fewshot import FewShotTrainer
+
+# Prepare few-shot examples
+examples = [
+    SingleSample(
+        history=[{"role": "user", "content": "Translate to French: Hello"}],
+        output="Bonjour",
+    ),
+    SingleSample(
+        history=[{"role": "user", "content": "Translate to French: Goodbye"}],
+        output="Au revoir",
+    ),
+]
+
+# Create policy with few-shot examples
+trainer = FewShotTrainer()
+base_policy = create_policy_from_string("o4-mini")
+fewshot_policy = trainer.train(
+    policy=base_policy,
+    samples=examples
+)
+
+# Now use the policy with in-context examples
+response = fewshot_policy.infer("Translate to French: Thank you")
+print(response)
+```
+
+### Example 9: Reinforcement Learning with Graders
+
+```python
+from core.domain.forecasting import Forecasting
 from core.trainer.rl import RLTrainer, RLConfig
 from core.grader.python_brier import PythonBrierGrader
 
 # Setup
-domain = ForecastingDomain()
+domain = Forecasting()
 problems = domain.sample_problems(n=100, split="train")
 
 # Create grader and trainer
@@ -116,20 +269,95 @@ trained_policy = trainer.train(
 )
 ```
 
-### Example 5: Local Model Training with Multi-GPU
+### Example 10: End-to-End Workflow
+
+Complete workflow from domain to inference to training:
+
+```python
+from core.domain.conceptual import Conceptual
+from utils.policy_utils import create_policy_from_string
+from core.trainer.sft import SFTTrainer, SFTConfig
+
+# 1. Load domain and sample problems
+domain = Conceptual()
+problems = domain.sample_problems(n=10, split="train")
+
+# 2. Generate responses with base policy
+policy = create_policy_from_string("o4-mini")
+samples = [p.to_sample() for p in problems]
+results = policy.infer_many(samples)
+
+# 3. Use results as training data
+trainer = SFTTrainer(SFTConfig(num_epochs=1))
+trained_policy = trainer.train(policy=policy, samples=results)
+
+# 4. Test trained policy
+test_problem = domain.sample_problems(n=1, split="test")[0]
+response = trained_policy.infer(test_problem.to_sample())
+print(f"Q: {response.history[0]['content']}")
+print(f"A: {response.output}")
+```
+
+### Example 11: Async Inference and Training Across Multiple Domains
+
+Run inference and training on multiple domains in parallel:
+
+```python
+import asyncio
+from core.domain.conceptual import Conceptual
+from core.domain.forecasting import Forecasting
+from utils.policy_utils import create_policy_from_string
+from core.trainer.sft import SFTTrainer
+
+async def process_domain(domain, policy, trainer):
+    """Infer and train on a single domain"""
+    # Generate training data
+    problems = domain.sample_problems(n=5, split="train")
+    samples = [p.to_sample() for p in problems]
+    results = await asyncio.gather(*[policy.infer_async(s) for s in samples])
+
+    # Train and return
+    return await trainer.train_async(policy=policy, samples=results)
+
+async def main():
+    policy = create_policy_from_string("o4-mini")
+    trainer = SFTTrainer()
+
+    # Process multiple domains in parallel
+    domains = [Conceptual(), Forecasting()]
+    trained_policies = await asyncio.gather(
+        *[process_domain(d, policy, trainer) for d in domains]
+    )
+
+    print(f"Trained {len(trained_policies)} policies in parallel")
+
+asyncio.run(main())
+```
+
+### Example 12: Local Model Training with Multi-GPU
 
 ```python
 from core.policy.localmodel import LocalModel
-from core.trainer.sft import SFTTrainer
+from core.trainer.sft import SFTTrainer, SFTConfig
+from core.policy.schema import SingleSample
 
 # Create local model (automatically uses all available GPUs)
 model = LocalModel("meta-llama/Llama-3.2-1B-Instruct")
+
+# Prepare samples
+samples = [
+    SingleSample(
+        history=[{"role": "user", "content": "Hello"}],
+        output="Hi there!",
+    ),
+    # ... more samples
+]
 
 # Train with DeepSpeed ZeRO-2 (automatic)
 trainer = SFTTrainer(SFTConfig(num_epochs=2))
 trained_model = await trainer.train_async(
     policy=model,
-    trajectory_score_files=["trajectories.json"]
+    samples=samples
 )
 ```
 
@@ -139,11 +367,13 @@ The codebase is organized into four main abstraction layers:
 
 ### 1. Domains (`core/domain/`)
 
-Domains define problem sets with structured questions and optional ground truth. Base class: `ProblemDomain` (core/domain/schema.py:128)
+Domains define problem sets with structured questions and optional ground truth. Base class: `ProblemDomain` (core/domain/schema.py:148)
 
 **Problem Types:**
 - `BinaryProblem` - Questions with Yes/No options and optional ground truth (core/domain/schema.py:21)
 - `OpenEndedProblem` - Questions without predefined answers (core/domain/schema.py:116)
+
+Both problem types have a `to_sample()` method to convert them to `Sample` objects for inference.
 
 **Available Domains:**
 - **`forecasting.py`** - Binary prediction questions (requires fetching data)
@@ -159,7 +389,7 @@ Domains define problem sets with structured questions and optional ground truth.
 
 ### 2. Policies (`core/policy/`)
 
-Policies are unified interfaces for language models. Base class: `Policy` (core/policy/schema.py:51)
+Policies are unified interfaces for language models. Base class: `Policy` (core/policy/schema.py:49)
 
 **Available Implementations:**
 - **`apimodel.py`** - Standard API-based models (OpenAI, Anthropic, DeepSeek, etc.)
@@ -169,14 +399,27 @@ Policies are unified interfaces for language models. Base class: `Policy` (core/
 - **`human.py`** - CLI-based human-in-the-loop policy
 - **`claudecode.py`** - Claude Code agent integration
 
-**Key Methods:**
-- `infer_single(history)` / `infer_batch(histories)` - Generate completions
+**Primary Inference Methods (Recommended):**
+- **`infer(input)`** / **`infer_async(input)`** - Flexible single inference
+  - Accepts: `str | list[dict] | Sample | ProblemDomain`
+  - Returns: `str` (for history) or `SingleSample` (for Sample/ProblemDomain)
+
+- **`infer_many(input)`** / **`infer_many_async(input)`** - Flexible batch inference
+  - Accepts: `list[str] | list[list[dict]] | list[Sample] | tuple[ProblemDomain, int]`
+  - Returns: `list[str]` or `list[SingleSample]`
+
+**Specialized Inference Methods (For Simple History → String):**
+- `infer_from_history(history)` / `infer_from_history_async(history)` - Single history → string
+- `infer_from_histories(histories)` / `infer_from_histories_async(histories)` - Multiple histories → strings
+
+**Other Key Methods:**
 - `logprobs_single(dialogue)` / `logprobs_batch(dialogues)` - Get log probabilities (local models only)
 - `train_sft(samples)` / `train_rl(samples, grader)` - Train the model (out-of-place, returns new policy)
 - `add_few_shot_examples(examples)` - Create policy with few-shot context (out-of-place)
 - `embed(texts)` - Generate embeddings (where supported)
 
-**Sample Types** (core/policy/schema.py:24-48):
+**Sample Types** (core/policy/schema.py:21-47):
+- `Sample` - Abstract base with history
 - `SingleSample` - History + output for SFT
 - `PairedSample` - History + winning/losing outputs for DPO
 - `EvaluatedSample` - History + output + reward for RL
@@ -204,30 +447,30 @@ Graders compute rewards for RL training or evaluation scores. Base class: `Grade
 
 ### 4. Trainers (`core/trainer/`)
 
-Trainers orchestrate the training process. Base class: `Trainer` (core/trainer/schema.py:62)
+Trainers orchestrate the training process. Base class: `Trainer` (core/trainer/schema.py:61)
 
 **Available Implementations:**
-- **`sft.py`** - Supervised fine-tuning on top-scoring trajectories
+- **`sft.py`** - Supervised fine-tuning on samples
+  - Accepts `list[SingleSample]` directly (no selection/filtering)
   - Supports OpenAI/Together APIs and local training (TRL + DeepSpeed)
   - Automatic validation set creation (none/train/gt strategies)
   - WandB logging support
 
 - **`rl.py`** - Reinforcement learning with custom graders
+  - Accepts problem lists and grader
   - Supports OpenAI RL API and local training (TRL GRPO)
   - Works with any `Grader` implementation
   - Configurable KL penalty and reward shaping
 
 - **`fewshot.py`** - Few-shot in-context learning
-  - Selects top trajectories as examples
+  - Accepts `list[SingleSample]` directly (no selection/filtering)
   - Creates new policy with prepended context (out-of-place)
 
 **Key Methods:**
-- `train(policy, trajectory_score_files, reasoning_mode)` - Main training entry point
-- `load_trajectory_scores(filepath)` - Load trajectory-score pairs
-- `select_top_trajectories(pairs, top_percentage, top_count)` - Filter by score
-- `build_metadata(policy, files)` - Create training metadata
+- `train(policy, samples, **kwargs)` - Main training entry point (for SFT/FewShot)
+- `train(policy, problem_list, grader, **kwargs)` - Main training entry point (for RL)
 
-**Configuration** (core/trainer/schema.py:24):
+**Configuration** (core/trainer/schema.py:23):
 - `validation_strategy` - "none", "train" (split from training), or "gt" (ground truth filtered)
 - `lora_rank` - LoRA rank (0 for full-parameter training)
 - Set via environment variables: `VALIDATION_STRATEGY`, `LORA_RANK`
@@ -282,7 +525,7 @@ Used by trainer implementations:
 - `LORA_RANK` - LoRA rank for parameter-efficient training (default: 0, full-parameter)
 - `TRAINED_POLICY_NAME_PATTERN` - Naming pattern for trained models (supports placeholders)
 - `GRADER_TYPE` - Grader type: "python_brier", "model_brier", "model_agreement", "model"
-- `GRADER_MODEL` - Model name for model-based graders (default: "o4-mini-2025-04-16")
+- `GRADER_MODEL` - Model name for model-based graders (default: "o4-mini")
 - `GRADER_SPEC` - Full grader specification (JSON string)
 
 ### Performance and Execution
@@ -332,7 +575,7 @@ Use `BatchModel` for 50% cost reduction (24-48hr latency):
 ```python
 from core.policy.batchmodel import BatchModel
 
-policy = BatchModel("gpt-4o-mini")
+policy = BatchModel("o4-mini")
 # Same interface as other policies, but uses batch API
 ```
 
@@ -343,7 +586,7 @@ For high-throughput workloads (>100k tokens/s):
 ```python
 from core.policy.raymodel import RayModel
 
-policy = RayModel("gpt-4o-mini")
+policy = RayModel("o4-mini")
 # Automatically parallelizes API calls across workers
 ```
 
