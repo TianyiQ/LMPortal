@@ -28,14 +28,8 @@ data/
   questions/ - Domain datasets
 ```
 
-## Development Workflow
+### Running Commands
 
-### 1. Setup Phase
-```python
-import utils.path_utils  # Always first - fixes import paths
-```
-
-### 2. Run Commands
 ```bash
 # Always run as module from project root
 python -m your.module.path
@@ -43,19 +37,13 @@ python -m your.module.path
 # NOT: python your/module/path.py
 ```
 
-### 3. Async/Sync Interop
+Also, to avoid issues with multiple event loops, use `utils.async_utils.run_coroutine` to run async functions from sync context.
+
 ```python
 from utils.async_utils import run_coroutine
 
 # Call async from sync context
 result = run_coroutine(async_function(*args))
-```
-
-### 4. Finish & Polish
-```bash
-ruff check --fix .              # Fix linting
-black <changed_file> --workers=1  # Format ONLY changed files
-pytest tests/                    # Run tests
 ```
 
 ## Coding Standards
@@ -191,14 +179,14 @@ Note: Requires fetching new data first with the domain's data fetching method.
 from utils.policy_utils import create_policy_from_string
 from core.grader.schema import create_grader_from_env
 
-policy = create_policy_from_string("gpt-4o-mini")
+policy = create_policy_from_string("o4-mini")
 grader = create_grader_from_env()  # Uses GRADER_TYPE env var
 ```
 
 ### Environment Variables
 - API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.
-- Training: `VALIDATION_STRATEGY`, `LORA_RANK`
-- Performance: `USE_RAY`, `FORCE_SINGLE_GPU`
+- Training: `VALIDATION_STRATEGY`, `LORA_RANK`, etc.
+- Performance: `USE_RAY`, `FORCE_SINGLE_GPU`, etc.
 
 ### File References
 - Policy interface: `core/policy/schema.py:51`

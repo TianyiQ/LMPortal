@@ -1,110 +1,195 @@
-## Project Overview
+# Development Agent Guide
 
-This is an AI training infrastructure library providing unified abstractions for policies (models), domains (problem sets), graders (reward functions), and trainers (training strategies).
+## Project Context
 
-**Key files to understand:**
-- `README.md` - Full project documentation
-- `core/schema.py` - Base Config class used throughout
-- `core/policy/schema.py` - Policy interface and sample types
-- `core/domain/schema.py` - Domain interface and problem types
-- `core/grader/schema.py` - Grader interface
-- `core/trainer/schema.py` - Trainer interface
+This is an **infrastructure library** for AI training. You're working with:
+- **Core abstractions**: Policy (models), Domain (problems), Grader (rewards), Trainer (training)
+- **No scripts, algorithms, or evaluation code** - only the foundational abstractions
+- Focus on clean interfaces, extensibility, and production quality
 
-**Naming conventions:**
-- Files and symbols should be extensible, informative, and self-explanatory
-- Use descriptive names that indicate purpose and scope
+## Quick Orientation
 
-## Project Structure
+### Essential Reading
+1. `README.md` - Project overview and API documentation
+2. `core/schema.py` - Base Config class
+3. `core/*/schema.py` - Interface contracts for each component
 
-This is an infrastructure-only repository. There are no scripts, algorithms, or evaluation frameworks here - only the core abstractions and implementations.
-
-**Key directories:**
-- `core/domain/` - Problem domain implementations
-- `core/policy/` - Model interface implementations
-- `core/grader/` - Reward/grading implementations
-- `core/trainer/` - Training strategy implementations
-- `utils/` - Utility functions
-- `lib/safety_tooling/` - Production API inference library
-- `data/config/` - Training configuration files (DeepSpeed, Accelerate)
-- `data/questions/` - Domain-specific datasets
-
-## Development Strategy
-
-### Code Reuse
-- Extend or fix existing classes/methods rather than duplicating functionality
-- Policy, Domain, Grader, and Trainer all have base classes - inherit from them
-- Use composition over inheritance where appropriate (e.g., wrapping graders)
-
-### Error Handling
-- Don't catch exceptions that indicate bugs - let them fail fast
-- Use assertions for invariants that should never fail
-- NEVER use mock data or suppress unexpected errors
-- Validate inputs at API boundaries, fail clearly on invalid data
-
-### Testing and Validation
-- Test with real data, not mocks
-- For analysis/debugging, include raw outputs (dataframe summaries, full error traces)
-- Run end-to-end tests and inspect outputs manually
-- Iterate until everything works correctly
-
-### Code Organization
-- Keep logic unified - avoid duplication
-- Extract common patterns into utilities
-- Use type hints for clarity
-- Document complex logic with comments
-
-## Development Conventions
-
-### Import Path Management
-Always add this at the top of your scripts:
-```python
-import utils.path_utils  # Fixes import paths
+### Directory Structure
+```
+core/
+  domain/    - Problem sets (forecasting, research Q&A, etc.)
+  policy/    - Model interfaces (API, local, batch, human)
+  grader/    - Reward functions for RL
+  trainer/   - Training strategies (SFT, RL, few-shot)
+utils/       - Helpers (async, I/O, policy creation)
+lib/safety_tooling/ - Production API inference library
+data/
+  config/   - Training configs (DeepSpeed, Accelerate)
+  questions/ - Domain datasets
 ```
 
-Run scripts as modules from project root:
+### Running Commands
+
 ```bash
+# Always run as module from project root
 python -m your.module.path
+
 # NOT: python your/module/path.py
 ```
 
-### Async/Sync Interop
-Run async functions from sync context:
+Also, to avoid issues with multiple event loops, use `utils.async_utils.run_coroutine` to run async functions from sync context.
+
 ```python
 from utils.async_utils import run_coroutine
 
-result = run_coroutine(async_function(*args, **kwargs))
+# Call async from sync context
+result = run_coroutine(async_function(*args))
 ```
 
-### Code Quality
-After making changes:
-1. **Clean up** - Remove debugging code, unused imports
-2. **Lint** - `ruff check --fix .`
-3. **Format** - `black <changed_file> --workers=1` (only changed files!)
-4. **Test** - Run relevant tests to ensure nothing broke
+## Coding Standards
 
-### Working with the Abstractions
+### Design Principles
+- **Extend, don't duplicate** - Inherit from base classes (Policy, Domain, Grader, Trainer)
+- **Fail fast** - Don't catch exceptions that indicate bugs
+- **Real data only** - NEVER use mocks or suppress errors
+- **Out-of-place operations** - Training returns new instances, doesn't mutate
+
+### Code Quality Checklist
+- [ ] Type hints on all public APIs
+- [ ] Docstrings for classes and non-trivial methods
+- [ ] Assertions for invariants
+- [ ] No dead code or debug prints
+- [ ] Linted (`ruff`) and formatted (`black`)
+
+### Common Patterns
 
 #### Creating a New Domain
-1. Inherit from `ProblemDomain` (core/domain/schema.py:128)
-2. Define your questions as `BinaryProblem` or `OpenEndedProblem`
-3. Implement `make_questions_splits()` if needed
-4. Override `postprocess_sample()` and `preprocess_samples()` if needed
+```python
+from core.domain.schema import ProblemDomain, BinaryProblem
+
+class MyDomain(ProblemDomain):
+    def __init__(self):
+        super().__init__()
+        self.questions_all = [...]  # Load your questions
+        self.make_questions_splits(train_size=0.8)
+```
 
 #### Creating a New Grader
-1. Inherit from `Grader` (core/grader/schema.py:17)
-2. Implement `grade_async(sample, item)` - return float score
-3. Implement `to_openai_spec()` for OpenAI RL API compatibility
-4. Optionally implement `validate_problem()` and `transform_dataset()`
+```python
+from core.grader.schema import Grader
+
+class MyGrader(Grader):
+    async def grade_async(self, sample, item=None):
+        # Return float score
+        return score
+
+    def to_openai_spec(self):
+        # Return OpenAI RL API format
+        return {"type": "...", ...}
+```
 
 #### Creating a New Trainer
-1. Inherit from `Trainer` (core/trainer/schema.py:62)
-2. Implement `train_async(policy, trajectory_score_files, reasoning_mode, **kwargs)`
-3. Use helper methods: `load_trajectory_scores()`, `select_top_trajectories()`, `build_metadata()`
-4. Training is always out-of-place - return new Policy instance
+```python
+from core.trainer.schema import Trainer
 
-#### Creating a New Policy
-1. Inherit from `Policy` (core/policy/schema.py:51)
-2. Implement `infer_single_async()` for inference
-3. Optionally implement `logprobs_single_async()` for log probability support
-4. Optionally implement `train_sft_async()`, `train_rl_async()` for training
-5. Use `deep_copy()` utility when creating trained variants
+class MyTrainer(Trainer):
+    async def train_async(self, policy, trajectory_score_files, ...):
+        # Load data
+        pairs = self.load_trajectory_scores(trajectory_score_files[0])
+        trajs = self.select_top_trajectories(pairs, top_percentage=0.1)
+
+        # Convert and train (out-of-place!)
+        samples = convert_to_samples(trajs)
+        trained = await policy.train_sft_async(samples)
+        return trained
+```
+
+## Testing Strategy
+
+### Test with Real Data
+```python
+# Good
+domain = ForecastingDomain()
+problems = domain.sample_problems(n=5)
+
+# Bad - NEVER
+problems = [MockProblem(), MockProblem()]
+```
+
+### Validate Outputs
+- Run end-to-end tests manually
+- Inspect actual outputs (print dataframes, check files)
+- Iterate until correct
+
+### Debug Effectively
+```python
+# Include full context in errors
+logger.urgent(f"Failed to process {item}: {error}\n{traceback.format_exc()}")
+
+# NOT: just swallow exceptions
+```
+
+## Communication
+
+### Progress Updates
+- Keep short and action-focused
+- State what you're doing and why
+- For long operations, give success criteria
+
+### Final Summary
+Include:
+1. **What changed** - High-level description
+2. **Files modified** - List of changed files
+3. **How to verify** - Exact command to test
+4. **Known issues** - Any caveats or TODOs
+
+Example:
+```
+Updated ForecastingDomain to support new data format.
+
+Files changed:
+- core/domain/forecasting.py
+- tests/test_forecasting.py
+
+Verify: python -m pytest tests/test_forecasting.py
+
+Note: Requires fetching new data first with the domain's data fetching method.
+```
+
+## Common Pitfalls
+
+❌ **Don't**:
+- Catch exceptions that shouldn't happen
+- Use mock data in production code
+- Mutate policies/configs in-place
+- Run files directly (`python file.py`)
+- Format unchanged files
+
+✅ **Do**:
+- Let bugs fail fast with clear errors
+- Test with real domains/problems
+- Return new instances from training
+- Run as modules (`python -m module`)
+- Format only what you changed
+
+## Quick Reference
+
+### Factory Functions
+```python
+from utils.policy_utils import create_policy_from_string
+from core.grader.schema import create_grader_from_env
+
+policy = create_policy_from_string("o4-mini")
+grader = create_grader_from_env()  # Uses GRADER_TYPE env var
+```
+
+### Environment Variables
+- API keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.
+- Training: `VALIDATION_STRATEGY`, `LORA_RANK`, etc.
+- Performance: `USE_RAY`, `FORCE_SINGLE_GPU`, etc.
+
+### File References
+- Policy interface: `core/policy/schema.py:51`
+- Domain interface: `core/domain/schema.py:128`
+- Grader interface: `core/grader/schema.py:17`
+- Trainer interface: `core/trainer/schema.py:62`

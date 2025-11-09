@@ -2,11 +2,11 @@
 
 ## Overview
 
-This repository provides a unified infrastructure for language model training and evaluation. It defines clean abstractions for **policies** (models), **domains** (problem sets), **graders** (reward functions), and **trainers** (training strategies), enabling flexible experimentation with different combinations of these components.
+This repository provides a unified infrastructure for language model training and inference. It defines clean abstractions for **policies** (models), **domains** (problem sets), **graders** (reward functions), and **trainers** (training strategies), enabling flexible experimentation with different combinations of these components.
 
 Key features:
-- **Unified Policy Interface**: Work with API models, local models, batch APIs, and even humans through the same interface
-- **Flexible Training**: Support for SFT, RL (via OpenAI API or local), and few-shot learning
+- **Unified Policy Interface**: Work with API models, local models, batch APIs, Claude Code agents, and even humans through the same interface
+- **Flexible Training**: Support for SFT (via OpenAI/TogetherAI API or local), RL (via OpenAI/TogetherAI API or local), and few-shot learning
 - **Domain Abstractions**: Structured problem definitions for forecasting, research Q&A, and conceptual reasoning
 - **Grader Framework**: Python-based and model-based graders for automatic reward computation
 - **Production-Ready**: Includes the `safety_tooling` library for robust API inference with caching, retry logic, and batch processing
@@ -29,7 +29,7 @@ uv pip install -e .
 from utils.policy_utils import create_policy_from_string
 
 # Create a policy (automatically detects provider)
-policy = create_policy_from_string("gpt-4o-mini")
+policy = create_policy_from_string("o4-mini")
 
 # Single inference
 response = policy.infer_single("What is the capital of France?")
@@ -79,12 +79,12 @@ samples = [
 config = SFTConfig(
     num_epochs=2,
     learning_rate=1e-5,
-    validation_strategy="train"
+    validation_strategy="train" # split from training set
 )
 trainer = SFTTrainer(config)
 
 # Train (creates new policy, doesn't modify original)
-base_policy = create_policy_from_string("gpt-4o-mini")
+base_policy = create_policy_from_string("gpt-4o")
 trained_policy = trainer.train(
     policy=base_policy,
     trajectory_score_files=["path/to/scored_trajectories.json"]
@@ -108,7 +108,7 @@ config = RLConfig(num_epochs=3, learning_rate=1e-6, kl_coef=0.1)
 trainer = RLTrainer(config)
 
 # Train with RL
-base_policy = create_policy_from_string("gpt-4o-mini")
+base_policy = create_policy_from_string("o4-mini")
 trained_policy = trainer.train(
     policy=base_policy,
     problem_list=problems,
