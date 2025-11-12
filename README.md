@@ -6,7 +6,7 @@ This repository provides a unified infrastructure for language model training an
 
 Key features:
 - **Unified Policy Interface**: Work with API models, local models, batch APIs, Claude Code agents, and even humans through the same interface
-- **Flexible Inference**: The new `infer()` and `infer_many()` methods accept multiple input types (histories, Samples, Problems, or Domains) and return appropriate output types
+- **Flexible Inference**: The `infer()` and `infer_many()` methods accept multiple input types (histories, Samples, Problems, or Domains) and return appropriate output types
 - **Flexible Training**: Support for SFT (via OpenAI/TogetherAI API or local), RL (via OpenAI API or local), and few-shot learning
 - **Fully Parallelized**: The pipeline is fully asynchronous and parallelized, achieving maximum concurrency for both inference and training. Optional support for Ray to increase multi-core CPU utilization
 - **Domain Abstraction**: Problem domain interface, with predefined implementations for forecasting, research Q&A, conceptual reasoning, intellectual reasoning, OpenReview, and ChangeMyView opinion evaluation tasks
@@ -56,6 +56,16 @@ response = policy.infer([
     {"role": "user", "content": "What is 2+2?"}
 ])
 print(response)  # Returns: str
+
+# Getting logprobs of held-out response
+conversation_logprobs = policy.logprobs_single([
+    {"role": "user", "content": "What is 2+2?"},
+    {"role": "assistant", "content": "4"},
+])
+prompt_logprobs = policy.logprobs_single([
+    {"role": "user", "content": "What is 2+2?"},
+])
+print(conversation_logprobs - prompt_logprobs)  # Returns: float
 ```
 
 ### Example 2: Inference with Problems and Domains
@@ -360,12 +370,18 @@ trained_model = await trainer.train_async(
 
 ## Supported Policies
 
-The following policies are supported via `create_policy_from_string()`. Pass the string in the "Policy String" column to create a policy. Support for other models can be easily added by adding the model to the `candidate_policies` dictionaries in `utils/policy_utils.py`.
+The following policies are supported via `create_policy_from_string()`. Pass the string in the "Policy String" column to create a policy. Support for other policies can be easily added by adding the policy to the `candidate_policies` dictionaries in `utils/policy_utils.py`.
 
 | Policy String | Provider | Model Type | Notes |
 |-------------|----------|------------|-------|
 | `human` | N/A | Special | CLI-based human input |
 | `claude-code` | N/A | Special | Claude Code agent integration |
+| HuggingFace model ID | HuggingFace/Local | LocalModel | e.g., `Qwen/Qwen3-235B-A22B-Thinking-2507` |
+| Path from `data/models/` | Local | LocalModel | Relative path starting from `data/models/` |
+| `gemini-embedding-001` | Google | Embedding | Requires `USE_RAY=1` |
+| `Qwen/Qwen3-Embedding-8B` | Local | Embedding | Local SGlang-based |
+| `Qwen/Qwen3-Embedding-4B` | Local | Embedding | Local SGlang-based |
+| `Qwen/Qwen3-Embedding-0.6B` | Local | Embedding | Local SGlang-based |
 | `gpt-4.1-nano` | OpenAI | API | |
 | `gpt-4.1-mini` | OpenAI | API | |
 | `gpt-4.1` | OpenAI | API | |
@@ -408,12 +424,6 @@ The following policies are supported via `create_policy_from_string()`. Pass the
 | `gemini-2.0-flash` | Google | API | |
 | `gemini-2.5-flash` | Google | API | Via OpenRouter only |
 | `gemini-2.5-pro` | Google | API | |
-| `gemini-embedding-001` | Google | Embedding | Requires `USE_RAY=1` |
-| `Qwen/Qwen3-Embedding-8B` | Local | Embedding | Local SGlang-based |
-| `Qwen/Qwen3-Embedding-4B` | Local | Embedding | Local SGlang-based |
-| `Qwen/Qwen3-Embedding-0.6B` | Local | Embedding | Local SGlang-based |
-| HuggingFace model ID | HuggingFace/Local | LocalModel | e.g., `Qwen/Qwen3-235B-A22B-Thinking-2507` |
-| Path from `data/models/` | Local | LocalModel | Relative path starting from `data/models/` |
 
 **Notes:**
 - Some models are only available via OpenRouter (when `USE_OPENROUTER=1`) or direct provider access
