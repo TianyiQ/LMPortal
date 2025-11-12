@@ -63,11 +63,11 @@ print(response)  # Returns: str
 The flexible `infer()` method can directly work with Problems and Domains:
 
 ```python
-from core.domain.conceptual import Conceptual
+from core.domain.forecasting import Forecasting
 from utils.policy_utils import create_policy_from_string
 
 policy = create_policy_from_string("o4-mini")
-domain = Conceptual()
+domain = Forecasting()
 
 # Infer from a single problem
 problem = domain.sample_problems(n=1)[0]
@@ -108,10 +108,10 @@ print(f"Generated {len(results)} responses")  # Returns: list[SingleSample]
 ### Example 4: Working with Domains
 
 ```python
-from core.domain.conceptual import Conceptual
+from core.domain.conceptual import Forecasting
 
 # Load domain
-domain = Conceptual()
+domain = Forecasting()
 
 # Sample problems
 problems = domain.sample_problems(n=5, split="train")
@@ -265,7 +265,7 @@ trained_policy = trainer.train(
 
 ### Example 10: End-to-End Workflow
 
-Complete workflow from domain to inference to training:
+Complete workflow from domain to inference to training, using self-labeled training as an example:
 
 ```python
 from core.domain.conceptual import Conceptual

@@ -104,7 +104,7 @@ class MyTrainer(Trainer):
 ### Test with Real Data
 ```python
 # Good
-domain = ForecastingDomain()
+domain = Forecasting()
 problems = domain.sample_problems(n=5)
 
 # Bad - NEVER
@@ -141,18 +141,14 @@ When encountering failures:
 Include:
 1. **What changed** - High-level description
 2. **Files modified** - List of changed files
-3. **How to verify** - Exact command to test
-4. **Known issues** - Any caveats or TODOs
+3. **Known issues** - Any caveats or TODOs
 
 Example:
 ```
-Updated ForecastingDomain to support new data format.
+Updated Forecasting to support new data format.
 
 Files changed:
 - core/domain/forecasting.py
-- tests/test_forecasting.py
-
-Verify: python -m pytest tests/test_forecasting.py
 
 Note: Requires fetching new data first with the domain's data fetching method.
 ```
