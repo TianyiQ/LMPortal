@@ -131,11 +131,10 @@ for problem in problems:
 Create interactive dialogues between human and AI policies:
 
 ```python
-from core.policy.human import Human
 from utils.policy_utils import create_policy_from_string
 
 # Create policies
-human = Human()
+human = create_policy_from_string("human")
 ai = create_policy_from_string("o4-mini")
 
 # Start dialogue
@@ -157,10 +156,10 @@ for turn in range(3):
 Use Claude Code agents for complex reasoning tasks:
 
 ```python
-from core.policy.claudecode import ClaudeCode
+from utils.policy_utils import create_policy_from_string
 
 # Create Claude Code agent policy
-agent = ClaudeCode()
+agent = create_policy_from_string("claude-code")
 
 # Infer with code execution capabilities
 result = agent.infer("Write a Python function to calculate fibonacci numbers and test it with n=10")
@@ -304,6 +303,8 @@ from core.domain.forecasting import Forecasting
 from utils.policy_utils import create_policy_from_string
 from core.trainer.sft import SFTTrainer
 
+policy = create_policy_from_string("o4-mini")
+
 async def process_domain(domain, policy, trainer):
     """Infer and train on a single domain"""
     # Generate training data
@@ -315,7 +316,6 @@ async def process_domain(domain, policy, trainer):
     return await trainer.train_async(policy=policy, samples=results)
 
 async def main():
-    policy = create_policy_from_string("o4-mini")
     trainer = SFTTrainer()
 
     # Process multiple domains in parallel
@@ -329,17 +329,17 @@ async def main():
 asyncio.run(main())
 ```
 
-Everything else in this library is also asynchronous, and the snippet above serves only as an example.
+Everything else in this library is also asynchronous, and the snippet above serves only as an example. Note that it is strongly recommended to instantiate policies (including through the `create_policy_from_string` interface and through policy classes such as `LocalModel`) outside of asynchronous contexts, to avoid potential event loop issues.
 
 ### Example 12: Local Model Training with Multi-GPU
 
 ```python
-from core.policy.localmodel import LocalModel
+from utils.policy_utils import create_policy_from_string
 from core.trainer.sft import SFTTrainer, SFTConfig
 from core.policy.schema import SingleSample
 
 # Create local model (automatically uses all available GPUs)
-model = LocalModel("meta-llama/Llama-3.2-1B-Instruct")
+policy = create_policy_from_string("meta-llama/Llama-3.2-1B-Instruct")
 
 # Prepare samples
 samples = [
@@ -353,7 +353,7 @@ samples = [
 # Train with DeepSpeed ZeRO-2 (automatic)
 trainer = SFTTrainer(SFTConfig(num_epochs=2))
 trained_model = await trainer.train_async(
-    policy=model,
+    policy=policy,
     samples=samples
 )
 ```
@@ -545,7 +545,7 @@ Trainers orchestrate the training process. Base class: `Trainer` (core/trainer/s
 
 ### Multi-GPU Training with DeepSpeed
 
-LocalModel supports distributed training across multiple GPUs automatically:
+`LocalModel` supports distributed training across multiple GPUs automatically:
 
 ```bash
 # Automatic multi-GPU detection
@@ -565,25 +565,11 @@ DeepSpeed ZeRO-2 is automatically used when multiple GPUs are detected. Configur
 
 ### Batch APIs for Cost Savings
 
-Use `BatchModel` for 50% cost reduction (24-48hr latency):
-
-```python
-from core.policy.batchmodel import BatchModel
-
-policy = BatchModel("o4-mini")
-# Same interface as other policies, but uses batch API
-```
+Set the environment variable `USE_BATCH=1` to use batch APIs for cost savings. It saves 50% on API calls, at the cost of 24-48hr latency.
 
 ### Ray-based Parallelization
 
-For high-throughput workloads (>100k tokens/s):
-
-```python
-from core.policy.raymodel import RayModel
-
-policy = RayModel("o4-mini")
-# Automatically parallelizes API calls across workers
-```
+Set `USE_RAY=1` to use Ray for parallelization. It is recommended for high-throughput workloads (>100k tokens/s).
 
 ## License
 

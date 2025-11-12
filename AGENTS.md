@@ -1,6 +1,6 @@
-# Development Agent Guide
+# Infrastructure Guide for Development Agents
 
-The project contains infrastructure for language model inference and training. You're working with core abstractions including Policy (models), Domain (problems), Grader (rewards), and Trainer (training). You should keep clean interfaces, extensibility, and production quality.
+The codebase contains infrastructure for language model inference and training, including core abstractions such as Policy (models), Domain (problems), Grader (rewards), and Trainer (training). You should keep clean interfaces, extensibility, and production quality.
 
 ## Quick Orientation
 
