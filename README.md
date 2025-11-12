@@ -35,6 +35,71 @@ export USE_RAY=1          # Enable Ray for parallel API calls and multi-core uti
 export USE_OPENROUTER=1   # Use OpenRouter for high-throughput model routing
 ```
 
+## Supported Models
+
+The following models are supported via `create_policy_from_string()`. Pass the string in the "Model String" column to create a policy.
+
+| Model String | Provider | Model Type | Notes |
+|-------------|----------|------------|-------|
+| `human` | N/A | Special | CLI-based human-in-the-loop policy |
+| `claude-code` | N/A | Special | Claude Code agent integration |
+| `gpt-4.1-nano` | OpenAI | API | |
+| `gpt-4.1-mini` | OpenAI | API | |
+| `gpt-4.1` | OpenAI | API | |
+| `gpt-5` | OpenAI | API | |
+| `gpt-5-mini` | OpenAI | API | |
+| `gpt-5-nano` | OpenAI | API | |
+| `gpt-o3` | OpenAI | API | Alias for `o3` |
+| `o3` | OpenAI | API | |
+| `o3-2025-04-16` | OpenAI | API | |
+| `gpt-o4-mini` | OpenAI | API | Alias for `o4-mini` |
+| `o4-mini` | OpenAI | API | |
+| `o4-mini-2025-04-16` | OpenAI | API | |
+| `gpt-4o` | OpenAI | API | |
+| `deepseek-v3` | Together/DeepSeek | API | |
+| `llama-4-scout` | Together/Meta | API | |
+| `llama-4-maverick` | Together/Meta | API | |
+| `claude-sonnet-4` | Anthropic | API | |
+| `claude-opus-4` | Anthropic | API | |
+| `claude-opus-4.1` | Anthropic | API | |
+| `claude-3-5-haiku` | Anthropic | API | |
+| `deepseek-r1` | Together/DeepSeek | API | |
+| `gemma-3-27b-it` | Together/Google | API | |
+| `gemma-3-12b-it` | Together/Google | API | Via OpenRouter only |
+| `gemma-3-4b-it` | Together/Google | API | Via OpenRouter only |
+| `gemma-2-27b-it` | Together/Google | API | |
+| `gemma-3n-e4b-it` | Together/Google | API | |
+| `llama-3-1-8b-instruct` | Together/Meta | API | |
+| `qwen-3-235b-a22b-instruct` | Together/Qwen | API | |
+| `qwen-3-235b-a22b-thinking` | Together/Qwen | API | |
+| `qwen-3-235b-a22b` | Together/Qwen | API | |
+| `qwen-3-32b` | Together/Qwen | API | |
+| `qwen-3-14b` | Together/Qwen | API | |
+| `qwen-3-14b-base` | Together/Qwen | API | Direct provider only |
+| `qwen-3-8b` | Together/Qwen | API | |
+| `qwen-3-8b-base` | Together/Qwen | API | Direct provider only |
+| `qwen-2-5-7b` | Together/Qwen | API | |
+| `mistral-small-3.1-24b-instruct` | Together/Mistral | API | Via OpenRouter only |
+| `mistral-small-24b-instruct-2501` | Together/Mistral | API | Direct provider only |
+| `kimi-k2` | Together/Moonshot | API | |
+| `gemini-2.0-flash` | Google | API | |
+| `gemini-2.5-flash` | Google | API | Via OpenRouter only |
+| `gemini-2.5-pro` | Google | API | |
+| `gemini-embedding-001` | Google | Embedding | Requires `USE_RAY=1` |
+| `Qwen/Qwen3-Embedding-8B` | Local | Embedding | Local SGlang-based |
+| `Qwen/Qwen3-Embedding-4B` | Local | Embedding | Local SGlang-based |
+| `Qwen/Qwen3-Embedding-0.6B` | Local | Embedding | Local SGlang-based |
+| HuggingFace model ID | HuggingFace/Local | LocalModel | e.g., `Qwen/Qwen3-235B-A22B-Thinking-2507` |
+| Path from `data/models/` | Local | LocalModel | Relative path starting from `data/models/` |
+
+**Notes:**
+- Some models are only available via OpenRouter (when `USE_OPENROUTER=1`) or direct provider access
+- LocalModel entries accept either:
+  - HuggingFace-hosted model IDs (e.g., `Qwen/Qwen3-235B-A22B-Thinking-2507`)
+  - Relative paths from `data/models/` for locally saved models
+- System prompts can be appended to model strings (e.g., `gpt-4o-baseline`, `o4-mini-critical`)
+- Trained models saved in `data/models/` are automatically detected and loaded
+
 ## Usage Examples
 
 ### Example 1: Basic Flexible Inference
